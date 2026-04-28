@@ -30,6 +30,7 @@ export default function BabyTrackPage() {
   const [mirror, setMirror] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
   const [params, setParams] = useState<ImageTrackParams>({
     shape: 'circle',
@@ -136,39 +137,56 @@ export default function BabyTrackPage() {
     if (ok) { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 1800); }
   };
 
-  const handleExportWebM = () => {
+  const exportImage = (fmt: 'png' | 'jpeg' | 'webp') => {
     const canvas = canvasRef.current;
-    if (!canvas || !isActive || isRecording) return;
-    if (!('captureStream' in canvas)) return;
+    if (!canvas || !isActive) return;
+    const mime = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' }[fmt];
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL(mime, 0.92);
+    a.download = `babytrack.${fmt}`;
+    a.click();
+    setShowExport(false);
+  };
+
+  const exportWebM = (secs: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isActive || isRecording || !('captureStream' in canvas)) return;
     const stream = (canvas as any).captureStream(30);
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm';
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
     const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
     recorder.onstop = () => {
       setIsRecording(false);
       const blob = new window.Blob(chunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = 'babytrack.webm';
-      a.click();
+      a.href = url; a.download = 'babytrack.webm'; a.click();
       URL.revokeObjectURL(url);
     };
     setIsRecording(true);
-    recorder.start();
-    setTimeout(() => recorder.stop(), 10000);
+    recorder.start(100);
+    setTimeout(() => recorder.stop(), secs * 1000);
+    setShowExport(false);
   };
 
   const set = (patch: Partial<ImageTrackParams>) => setParams((p) => ({ ...p, ...patch }));
 
   const btnBase: React.CSSProperties = {
-    padding: '7px 12px', border: '1px solid #333', borderRadius: 6,
+    padding: '7px 10px', border: '1px solid #333', borderRadius: 6,
     fontSize: 11, fontFamily: '"Courier New", monospace', fontWeight: 600,
     letterSpacing: '0.08em', cursor: 'pointer', background: '#2a2a2a', color: '#fff',
   };
+  const menuItem: React.CSSProperties = {
+    display: 'block', width: '100%', padding: '8px 14px', background: 'transparent',
+    color: '#bbb', border: 'none', cursor: 'pointer', textAlign: 'left',
+    fontSize: 11, fontFamily: '"Courier New", monospace', letterSpacing: '0.05em',
+  };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: 'system-ui, sans-serif' }} onClick={() => showExport && setShowExport(false)}>
       {/* Hidden video element for webcam feed */}
       <video ref={videoRef} style={{ display: 'none' }} playsInline muted />
 
@@ -195,8 +213,8 @@ export default function BabyTrackPage() {
           Real-time blob tracking on your webcam feed. Detects high-contrast regions and draws animated connections between them by color, size, and proximity affinity.
         </p>
 
-        {/* Camera + Record + Save buttons */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+        {/* Camera + Save + Export buttons */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }} onClick={(e) => e.stopPropagation()}>
           <button
             onClick={isActive ? stopCamera : startCamera}
             style={{
@@ -206,13 +224,13 @@ export default function BabyTrackPage() {
               borderColor: isActive ? '#4ade80' : '#333',
             }}
           >
-            {isActive ? '● Stop Camera' : 'Start Camera'}
+            {isActive ? '● Stop' : 'Camera'}
           </button>
           <button
             onClick={handleSave}
             disabled={!isActive}
             style={{
-              ...btnBase, flex: 1,
+              ...btnBase, flex: 'none' as const,
               background: savedFeedback ? '#14532d' : isActive ? '#2a2a2a' : '#1c1c1c',
               color: savedFeedback ? '#4ade80' : isActive ? '#bbb' : '#444',
               border: savedFeedback ? '1px solid #166534' : '1px solid #333',
@@ -221,18 +239,32 @@ export default function BabyTrackPage() {
           >
             {savedFeedback ? '✓ Saved' : 'Save'}
           </button>
-          <button
-            onClick={handleExportWebM}
-            disabled={!isActive || isRecording}
-            style={{
-              ...btnBase, flex: 1,
-              background: isRecording ? '#7f1d1d' : isActive ? '#2a2a2a' : '#1c1c1c',
-              color: isRecording ? '#fca5a5' : isActive ? '#bbb' : '#444',
-              cursor: isRecording ? 'wait' : isActive ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {isRecording ? '● REC' : 'VIDEO'}
-          </button>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <button
+              onClick={() => isActive && !isRecording && setShowExport((v) => !v)}
+              style={{
+                ...btnBase, width: '100%',
+                background: isRecording ? '#7f1d1d' : isActive ? '#2a2a2a' : '#1c1c1c',
+                color: isRecording ? '#fca5a5' : isActive ? '#bbb' : '#444',
+                cursor: isRecording ? 'wait' : isActive ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {isRecording ? '● REC' : 'Export ▾'}
+            </button>
+            {showExport && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#131313', border: '1px solid #2a2a2a', borderRadius: 8, overflow: 'hidden', zIndex: 200 }}>
+                <div style={{ padding: '6px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Snapshot</div>
+                {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
+                  <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItem}>{f}</button>
+                ))}
+                <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
+                <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video capture (WebM)</div>
+                {[5, 10, 30].map((s) => (
+                  <button key={s} onClick={() => exportWebM(s)} style={menuItem}>Clip — {s}s</button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Mirror toggle */}
