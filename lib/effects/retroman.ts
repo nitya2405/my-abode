@@ -4,8 +4,9 @@ export interface RetromanParams {
   algorithm: 'atkinson' | 'floyd' | 'bayer' | 'blue';
   brightness: number;  // -100 to +100
   contrast: number;    // -100 to +100
-  scale: number;       // 1–8 (pixel block size)
-  bgColor: string;     // hex e.g. '#ff6600'
+  scale: number;       // 1–8 pixel block size
+  fgColor: string;     // ink / foreground color
+  bgColor: string;     // background / second color
 }
 
 const BAYER4 = [
@@ -15,12 +16,16 @@ const BAYER4 = [
   [15, 7, 13, 5],
 ];
 
+function parseHex(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
 export function applyRetroman(imageData: ImageData, params: RetromanParams): ImageData {
   const { width, height, data } = imageData;
 
-  // Build grayscale + brightness/contrast
-  const gray = new Float32Array(width * height);
   const contrastFactor = (100 + params.contrast) / 100;
+  const gray = new Float32Array(width * height);
 
   for (let i = 0; i < width * height; i++) {
     const d = i * 4;
@@ -52,7 +57,6 @@ export function applyRetroman(imageData: ImageData, params: RetromanParams): Ima
     }
   }
 
-  // Dithering
   const dith = new Float32Array(gray);
 
   if (params.algorithm === 'atkinson') {
@@ -104,19 +108,16 @@ export function applyRetroman(imageData: ImageData, params: RetromanParams): Ima
     }
   }
 
-  // Parse bg color
-  const hex = params.bgColor.replace('#', '');
-  const bgR = parseInt(hex.slice(0, 2), 16);
-  const bgG = parseInt(hex.slice(2, 4), 16);
-  const bgB = parseInt(hex.slice(4, 6), 16);
+  const [fgR, fgG, fgB] = parseHex(params.fgColor);
+  const [bgR, bgG, bgB] = parseHex(params.bgColor);
 
   const output = new ImageData(width, height);
   for (let i = 0; i < width * height; i++) {
-    const isBlack = dith[i] < 128;
     const d = i * 4;
-    output.data[d] = isBlack ? 0 : bgR;
-    output.data[d + 1] = isBlack ? 0 : bgG;
-    output.data[d + 2] = isBlack ? 0 : bgB;
+    const isFg = dith[i] < 128;
+    output.data[d]     = isFg ? fgR : bgR;
+    output.data[d + 1] = isFg ? fgG : bgG;
+    output.data[d + 2] = isFg ? fgB : bgB;
     output.data[d + 3] = 255;
   }
 
