@@ -2,12 +2,15 @@ import { clamp } from '../utils';
 
 export interface BlurSuiteParams {
   mode: 'linear' | 'radial' | 'zoom' | 'wave' | 'tb' | 'lr';
-  strength: number;    // 0–100
-  grain: number;       // 0–100
-  rgbShift: number;    // 0–50 pixels
-  direction: number;   // 0–360 for linear mode
-  centerX: number;     // 0–1
-  centerY: number;     // 0–1
+  strength: number;       // 0–100
+  grain: number;          // 0–100
+  rgbShift: number;       // 0–50 pixels
+  direction: number;      // 0–360, linear mode only
+  motionX: number;        // -1 to 1, 0 = center
+  motionY: number;        // -1 to 1, 0 = center
+  bloom: boolean;
+  bloomStrength: number;  // 0–100
+  gradientMask: boolean;
 }
 
 function sampleRaw(
@@ -23,12 +26,46 @@ function sampleRaw(
   return [data[i], data[i + 1], data[i + 2]];
 }
 
+function boxBlur(src: Uint8ClampedArray, w: number, h: number, radius: number): Uint8ClampedArray {
+  const d = radius * 2 + 1;
+  const tmp = new Uint8ClampedArray(src.length);
+  const dst = new Uint8ClampedArray(src.length);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rS = 0, gS = 0, bS = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const xi = clamp(x + k, 0, w - 1);
+        const i = (y * w + xi) * 4;
+        rS += src[i]; gS += src[i + 1]; bS += src[i + 2];
+      }
+      const i = (y * w + x) * 4;
+      tmp[i] = rS / d; tmp[i + 1] = gS / d; tmp[i + 2] = bS / d; tmp[i + 3] = src[i + 3];
+    }
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rS = 0, gS = 0, bS = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const yi = clamp(y + k, 0, h - 1);
+        const i = (yi * w + x) * 4;
+        rS += tmp[i]; gS += tmp[i + 1]; bS += tmp[i + 2];
+      }
+      const i = (y * w + x) * 4;
+      dst[i] = rS / d; dst[i + 1] = gS / d; dst[i + 2] = bS / d; dst[i + 3] = src[i + 3];
+    }
+  }
+
+  return dst;
+}
+
 export function applyBlurSuite(imageData: ImageData, params: BlurSuiteParams): ImageData {
   const { width: w, height: h, data } = imageData;
   const out = new Uint8ClampedArray(data.length);
 
-  const cx = params.centerX * w;
-  const cy = params.centerY * h;
+  const cx = (params.motionX * 0.5 + 0.5) * w;
+  const cy = (params.motionY * 0.5 + 0.5) * h;
   const numSamples = Math.max(2, Math.round(params.strength / 4) + 2);
 
   for (let y = 0; y < h; y++) {
@@ -108,10 +145,25 @@ export function applyBlurSuite(imageData: ImageData, params: BlurSuiteParams): I
       }
 
       const idx = (y * w + x) * 4;
-      out[idx] = rS / n;
+      out[idx]     = rS / n;
       out[idx + 1] = gS / n;
       out[idx + 2] = bS / n;
       out[idx + 3] = data[idx + 3];
+    }
+  }
+
+  // Gradient mask: center is sharp (original), edges are fully blurred
+  if (params.gradientMask) {
+    const halfDiag = Math.sqrt((w * 0.5) ** 2 + (h * 0.5) ** 2);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        const dx = x - cx, dy = y - cy;
+        const t = Math.min(Math.sqrt(dx * dx + dy * dy) / halfDiag, 1);
+        out[idx]     = data[idx]     * (1 - t) + out[idx]     * t;
+        out[idx + 1] = data[idx + 1] * (1 - t) + out[idx + 1] * t;
+        out[idx + 2] = data[idx + 2] * (1 - t) + out[idx + 2] * t;
+      }
     }
   }
 
@@ -124,7 +176,7 @@ export function applyBlurSuite(imageData: ImageData, params: BlurSuiteParams): I
         const idx = (y * w + x) * 4;
         const rX = clamp(x - shift, 0, w - 1);
         const bX = clamp(x + shift, 0, w - 1);
-        post[idx] = out[(y * w + rX) * 4];
+        post[idx]     = out[(y * w + rX) * 4];
         post[idx + 2] = out[(y * w + bX) * 4 + 2];
       }
     }
@@ -135,11 +187,43 @@ export function applyBlurSuite(imageData: ImageData, params: BlurSuiteParams): I
     const g = params.grain * 2.0;
     for (let i = 0; i < post.length; i += 4) {
       const n = (Math.random() - 0.5) * g;
-      post[i] = clamp(post[i] + n, 0, 255);
+      post[i]     = clamp(post[i]     + n, 0, 255);
       post[i + 1] = clamp(post[i + 1] + n, 0, 255);
       post[i + 2] = clamp(post[i + 2] + n, 0, 255);
     }
   }
 
+  // Bloom: extract highlights, blur them, screen-blend back
+  if (params.bloom) {
+    const s = params.bloomStrength / 100;
+    const THRESHOLD = Math.round(clamp(220 - s * 140, 50, 220));
+    const radius = Math.max(4, Math.round(s * 16 + 4));
+    const highlights = new Uint8ClampedArray(post.length);
+    for (let i = 0; i < post.length; i += 4) {
+      const lum = post[i] * 0.299 + post[i + 1] * 0.587 + post[i + 2] * 0.114;
+      if (lum > THRESHOLD) {
+        const excess = (lum - THRESHOLD) / (255 - THRESHOLD);
+        highlights[i]     = post[i]     * excess;
+        highlights[i + 1] = post[i + 1] * excess;
+        highlights[i + 2] = post[i + 2] * excess;
+        highlights[i + 3] = 255;
+      }
+    }
+    const blurred = boxBlur(highlights, w, h, radius);
+    for (let i = 0; i < post.length; i += 4) {
+      post[i]     = 255 - ((255 - post[i])     * (255 - blurred[i])     / 255);
+      post[i + 1] = 255 - ((255 - post[i + 1]) * (255 - blurred[i + 1]) / 255);
+      post[i + 2] = 255 - ((255 - post[i + 2]) * (255 - blurred[i + 2]) / 255);
+    }
+  }
+
   return new ImageData(post, w, h);
+}
+
+export function renderBlurSuite(canvas: HTMLCanvasElement, imageData: ImageData, params: BlurSuiteParams) {
+  const result = applyBlurSuite(imageData, params);
+  canvas.width = result.width;
+  canvas.height = result.height;
+  const ctx = canvas.getContext('2d');
+  if (ctx) ctx.putImageData(result, 0, 0);
 }

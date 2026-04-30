@@ -27,7 +27,7 @@ const Header = styled.div`
 
 const Label = styled.span`
   font-size: 11px;
-  color: #777;
+  color: #8e9aaa;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 `;
@@ -35,10 +35,10 @@ const Label = styled.span`
 const Value = styled.span`
   font-size: 10px;
   font-family: 'Courier New', Courier, monospace;
-  color: #ccc;
-  background: #232323;
+  color: #acc7fd;
+  background: #152028;
   padding: 2px 7px;
-  border-radius: 3px;
+  border-radius: 0;
   min-width: 36px;
   text-align: right;
 `;
@@ -54,39 +54,40 @@ const Root = styled(Slider.Root)`
 `;
 
 const Track = styled(Slider.Track)`
-  background: #2a2a2a;
+  background: #152028;
   position: relative;
   flex-grow: 1;
-  border-radius: 9999px;
+  border-radius: 0;
   height: 3px;
 `;
 
 const Range = styled(Slider.Range)`
   position: absolute;
-  background: #555;
-  border-radius: 9999px;
+  background: rgba(172,199,253,0.4);
+  border-radius: 0;
   height: 100%;
 `;
 
 const Thumb = styled(Slider.Thumb)`
   display: block;
-  width: 14px;
-  height: 14px;
-  background: #fff;
-  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  background: #acc7fd;
+  border-radius: 0;
   border: none;
   cursor: pointer;
   outline: none;
   transition: transform 0.1s, background 0.1s;
 
-  &:hover {
-    background: #ddd;
+  &:hover,
+  &.js-hovered {
+    background: #d7e4ed;
   }
   &:focus-visible {
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 0 2px rgba(172,199,253,0.4);
   }
   &:active {
-    transform: scale(1.2);
+    transform: scale(1.15);
     background: #fff;
   }
 `;

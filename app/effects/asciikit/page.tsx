@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { renderASCIIKit, ASCIIKitParams } from '@/lib/effects/asciikit';
 import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
+import { C, effects } from '@/lib/effects-data';
 
 const MAX_DIM = 1200;
 
@@ -46,14 +47,14 @@ const DEFAULT_PARAMS: ASCIIKitParams = {
   contrast: 1.5,
   brightness: 0.0,
   invert: false,
-  overlayOriginal: true,
+  overlayOriginal: false,
   overlayOpacity: 0.9,
   overlayBlur: 0,
   blendMode: 'source-over',
   edgeDetection: false,
   edgeThreshold: 40,
   charColor: '#ffffff',
-  useOriginalColor: true,
+  useOriginalColor: false,
   charShadow: true,
   charThreshold: 0,
   bgColor: '#000000',
@@ -99,14 +100,13 @@ export default function ASCIIKitPage() {
   useEffect(() => {
     if (mediaType !== 'image' || !imageData || !canvasRef.current) return;
     cancelAnimationFrame(imageRafRef.current);
-    // Use rAF so the canvas update is batched with the browser paint
     imageRafRef.current = requestAnimationFrame(() => {
       if (canvasRef.current) renderASCIIKit(canvasRef.current, imageData, params);
     });
     return () => cancelAnimationFrame(imageRafRef.current);
   }, [imageData, params, mediaType]);
 
-  // Video loop — stops rAF when paused to save CPU
+  // Video loop
   useEffect(() => {
     if (mediaType !== 'video' || videoPaused) {
       cancelAnimationFrame(videoRafRef.current);
@@ -208,39 +208,33 @@ export default function ASCIIKitPage() {
     (val: ASCIIKitParams[K]) => setParams((p) => ({ ...p, [key]: val }));
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', background: '#0a0a0a' }}
+    <div style={{ display: 'flex', height: 'calc(100vh - 44px)', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', background: C.bg }}
       onClick={() => showExport && setShowExport(false)}>
       <video ref={videoRef} style={{ display: 'none' }} loop muted playsInline />
 
       {/* ── LEFT PANEL ── */}
-      <div style={{ width: 360, minWidth: 360, background: '#1a1a1a', borderRight: '1px solid #222', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: 320, minWidth: 320, background: C.surface, borderRight: `1px solid ${C.border}`, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ padding: '16px 18px 14px' }}>
-          <Link href="/" style={{ fontSize: 10, color: '#888', textDecoration: 'none', letterSpacing: '0.18em', textTransform: 'uppercase', display: 'block', marginBottom: 14 }}>
-            ← Back
-          </Link>
-          <div style={{ fontFamily: '"Courier New", monospace', fontSize: 21, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#fff', marginBottom: 8 }}>
+          <div style={{ fontFamily: '"Courier New", monospace', fontSize: 21, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.text, marginBottom: 8, textShadow: '0 0 20px rgba(172,199,253,0.2)' }}>
             ASCIIKIT
           </div>
-          <p style={{ fontSize: 12, color: '#888', lineHeight: 1.65, margin: '0 0 14px' }}>
+          <p style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, margin: '0 0 14px' }}>
             Convert images and video to character art with full color, font, and layout control.
           </p>
 
-          {/* Upload + Save + Export */}
           <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => uploadRef.current?.click()} style={btnStyle}>
-              Upload
-            </button>
+            <button onClick={() => uploadRef.current?.click()} style={btnStyle}>Upload</button>
             <input ref={uploadRef} type="file" accept="image/*,video/*" onChange={handleUpload} style={{ display: 'none' }} />
 
             <button
               onClick={handleSave}
               style={{
                 ...btnStyle, flex: 'none',
-                background: savedFeedback ? '#14532d' : '#222',
-                color: savedFeedback ? '#4ade80' : hasMedia ? '#bbb' : '#444',
+                background: savedFeedback ? '#0a3300' : C.surfaceHigh,
+                color: savedFeedback ? C.green : hasMedia ? C.primary : C.textMuted,
                 cursor: hasMedia ? 'pointer' : 'not-allowed',
-                border: savedFeedback ? '1px solid #166534' : '1px solid #333',
+                border: savedFeedback ? `1px solid ${C.green}40` : `1px solid ${C.border}`,
               }}
             >
               {savedFeedback ? '✓ Saved' : 'Save'}
@@ -251,8 +245,9 @@ export default function ASCIIKitPage() {
                 onClick={() => hasMedia && !isRecording && setShowExport((v) => !v)}
                 style={{
                   ...btnStyle, width: '100%',
-                  background: isRecording ? '#7f1d1d' : '#222',
-                  color: isRecording ? '#fca5a5' : hasMedia ? '#bbb' : '#444',
+                  background: isRecording ? '#3b0a0a' : C.surfaceHigh,
+                  color: isRecording ? '#ff6b6b' : hasMedia ? C.primary : C.textMuted,
+                  border: isRecording ? '1px solid #ff4a4a40' : `1px solid ${C.border}`,
                   cursor: isRecording ? 'wait' : hasMedia ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -260,24 +255,19 @@ export default function ASCIIKitPage() {
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#131313', border: '1px solid #2a2a2a', borderRadius: 8, overflow: 'hidden', zIndex: 200 }}>
-                  <div style={{ padding: '6px 12px 4px', fontSize: 9, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Image frame</div>
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#041016', border: `1px solid ${C.border}`, borderRadius: 0, overflow: 'hidden', zIndex: 200 }}>
+                  <div style={{ padding: '6px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Image frame</div>
                   {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItem}>{f}</button>
                   ))}
-                  <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
+                  <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
                   {videoFormats.map((fmt) => (
                     <div key={fmt.mime}>
-                      <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
-                      <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
+                      <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
+                      <div style={{ padding: '4px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
                       {[5, 10, 30].map((s) => (
                         <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItem}>Clip — {s}s</button>
                       ))}
-                      {videoDuration && (
-                        <button onClick={() => exportVideo(fmt, Math.ceil(videoDuration), true)} style={{ ...menuItem, color: '#4ade80' }}>
-                          Full — {Math.round(videoDuration)}s (from start)
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -291,11 +281,9 @@ export default function ASCIIKitPage() {
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid #222' }} />
+        <div style={{ borderTop: `1px solid ${C.border}` }} />
 
         <div style={{ padding: '0 18px 48px', display: 'flex', flexDirection: 'column' }}>
-
-          {/* Character Set */}
           <Sect label="Character Set" />
           <BtnGrid
             options={['Standard', 'Blocks', 'Simple', 'Binary', 'Dense', 'Minimal', 'Retro', 'Symbols', 'Custom']}
@@ -307,11 +295,10 @@ export default function ASCIIKitPage() {
               value={params.customChars}
               onChange={(e) => set('customChars')(e.target.value)}
               placeholder="Characters from dark → light"
-              style={{ marginBottom: 10, background: '#111', border: '1px solid #333', color: '#fff', padding: '6px 10px', borderRadius: 6, fontSize: 13, width: '100%', boxSizing: 'border-box' }}
+              style={{ marginBottom: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.text, padding: '6px 10px', borderRadius: 0, fontSize: 13, width: '100%', boxSizing: 'border-box' }}
             />
           )}
 
-          {/* Font */}
           <Sect label="Font Family" />
           <BtnGrid
             options={['Monospace', 'Courier', 'Consolas', 'Lucida Console']}
@@ -319,22 +306,19 @@ export default function ASCIIKitPage() {
             onChange={(v) => set('fontFamily')(v as ASCIIKitParams['fontFamily'])}
           />
 
-          {/* Scale */}
           <Sect label="Scale" />
           <Slider label="Font Scale"   value={params.fontScale}   min={0.5} max={4}   step={0.05} unit="x"  onChange={set('fontScale')} />
           <Slider label="Char Spacing" value={params.charSpacing} min={0.4} max={3}   step={0.05}           onChange={set('charSpacing')} />
           <Slider label="Line Height"  value={params.lineHeight}  min={0.5} max={3}   step={0.05}           onChange={set('lineHeight')} />
 
-          {/* Tone */}
           <Sect label="Tone" />
           <Slider label="Contrast"        value={params.contrast}       min={0.1} max={5}   step={0.05} onChange={set('contrast')} />
           <Slider label="Brightness"      value={params.brightness}     min={-1}  max={1}   step={0.02} onChange={set('brightness')} />
           <Slider label="Char Threshold"  value={params.charThreshold}  min={0}   max={0.98} step={0.01} onChange={set('charThreshold')} />
           <Toggle label="Invert" value={params.invert} onChange={set('invert')} />
 
-          {/* Overlay */}
           <Sect label="Overlay Original" />
-          <p style={hint}>ON: original image shows beneath characters. OFF: solid background — pure ASCII art.</p>
+          <p style={hint}>ON: original image shows beneath characters. OFF: solid background.</p>
           <Toggle label="Enable" value={params.overlayOriginal} onChange={set('overlayOriginal')} />
           {params.overlayOriginal && (
             <>
@@ -350,23 +334,19 @@ export default function ASCIIKitPage() {
             </>
           )}
 
-          {/* Edge Detection — always available */}
           <Sect label="Edge Detection" />
-          <p style={hint}>Characters only appear where Sobel edges exceed the threshold — traces object outlines on any background.</p>
           <Toggle label="Enable" value={params.edgeDetection} onChange={set('edgeDetection')} />
           {params.edgeDetection && (
             <Slider label="Threshold" value={params.edgeThreshold} min={0} max={255} step={1} onChange={set('edgeThreshold')} />
           )}
 
-          {/* Char Color */}
           <Sect label="Char Color" />
           <Toggle label="Use Original Colors" value={params.useOriginalColor} onChange={set('useOriginalColor')} />
-          <Toggle label="Shadow (improves visibility)" value={params.charShadow} onChange={set('charShadow')} />
+          <Toggle label="Shadow" value={params.charShadow} onChange={set('charShadow')} />
           {!params.useOriginalColor && (
             <ColorPicker colors={CHAR_COLORS} selected={params.charColor} onChange={set('charColor')} />
           )}
 
-          {/* Background — only in pure ASCII mode */}
           {!params.overlayOriginal && (
             <>
               <Sect label="Background" />
@@ -376,7 +356,6 @@ export default function ASCIIKitPage() {
               )}
             </>
           )}
-
         </div>
       </div>
 
@@ -393,7 +372,6 @@ export default function ASCIIKitPage() {
   );
 }
 
-/* ── VideoStage ── */
 function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef }: {
   hasMedia: boolean;
   mediaType: 'image' | 'video' | null;
@@ -407,7 +385,7 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
 
   return (
     <div
-      style={{ flex: 1, background: '#0f0f0f', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', cursor: isVideo ? 'pointer' : 'default' }}
+      style={{ flex: 1, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', cursor: isVideo ? 'pointer' : 'default' }}
       onMouseEnter={() => isVideo && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => isVideo && onToggle()}
@@ -415,40 +393,26 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
       {!hasMedia && (
         <div
           onClick={(e) => { e.stopPropagation(); onUpload(); }}
-          style={{ color: '#3a3a3a', textAlign: 'center', userSelect: 'none', cursor: 'pointer' }}
+          style={{ color: 'rgba(172,199,253,0.08)', textAlign: 'center', userSelect: 'none', cursor: 'pointer' }}
         >
           <div style={{ fontFamily: '"Courier New", monospace', fontSize: 52, fontWeight: 900, letterSpacing: '0.1em', marginBottom: 12 }}>ASCIIKIT</div>
-          <div style={{ fontSize: 13, color: '#666', letterSpacing: '0.05em' }}>Click to upload an image or video</div>
+          <div style={{ fontSize: 13, color: 'rgba(172,199,253,0.25)', letterSpacing: '0.08em', fontFamily: 'monospace' }}>[ CLICK TO UPLOAD IMAGE OR VIDEO ]</div>
         </div>
       )}
 
       <canvas ref={canvasRef} style={{ maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', display: hasMedia ? 'block' : 'none', cursor: 'default' }} />
 
-      {/* YouTube-style centered play/pause — fades in on hover */}
       {isVideo && (
         <div style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
           opacity: hovered || videoPaused ? 1 : 0,
           transition: 'opacity 0.2s ease',
         }}>
           <div style={{
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 22,
-            color: '#fff',
-            transition: 'transform 0.15s, background 0.15s',
+            width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+            border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, color: '#fff', transition: 'transform 0.15s, background 0.15s',
             transform: hovered ? 'scale(1.08)' : 'scale(1)',
           }}>
             {videoPaused ? '▶' : '⏸'}
@@ -459,26 +423,23 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
   );
 }
 
-/* ── shared styles ── */
 const btnStyle: React.CSSProperties = {
-  flex: 1, padding: '7px 10px', background: '#222', color: '#bbb',
-  border: '1px solid #333', borderRadius: 6, cursor: 'pointer',
+  flex: 1, padding: '7px 10px', background: C.surfaceHigh, color: C.primary,
+  border: `1px solid ${C.border}`, borderRadius: 0, cursor: 'pointer',
   fontSize: 11, fontFamily: '"Courier New", monospace', fontWeight: 600,
   letterSpacing: '0.08em',
 };
 const menuItem: React.CSSProperties = {
   display: 'block', width: '100%', padding: '8px 14px', background: 'transparent',
-  color: '#bbb', border: 'none', cursor: 'pointer', textAlign: 'left',
+  color: C.primary, border: 'none', cursor: 'pointer', textAlign: 'left',
   fontSize: 11, fontFamily: '"Courier New", monospace', letterSpacing: '0.05em',
 };
-const hint: React.CSSProperties = { fontSize: 11, color: '#888', lineHeight: 1.6, margin: '0 0 10px' };
-
-/* ── sub-components ── */
+const hint: React.CSSProperties = { fontSize: 11, color: C.textDim, lineHeight: 1.6, margin: '0 0 10px' };
 
 function Sect({ label }: { label: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginTop: 18, marginBottom: 8, paddingTop: 12, borderTop: '1px solid #222' }}>
-      <span style={{ fontSize: 11, color: '#666', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', marginTop: 18, marginBottom: 8, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+      <span style={{ fontSize: 11, color: C.textDim, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'monospace' }}>{label}</span>
     </div>
   );
 }
@@ -492,9 +453,9 @@ function BtnGrid({ options, value, cols, onChange }: {
         const active = value === opt || value === opt.toLowerCase();
         return (
           <button key={opt} onClick={() => onChange(opt)}
-            style={{ padding: '6px 4px', fontSize: 11, borderRadius: 5, border: 'none', cursor: 'pointer',
+            style={{ padding: '6px 4px', fontSize: 11, borderRadius: 0, border: active ? `1px solid ${C.primary}` : `1px solid ${C.border}`, cursor: 'pointer',
               fontFamily: '"Courier New", monospace', fontWeight: active ? 700 : 500,
-              background: active ? '#fff' : '#2a2a2a', color: active ? '#000' : '#aaa', transition: 'all 0.1s' }}>
+              background: active ? C.primary : C.surfaceHigh, color: active ? C.bg : C.textDim, transition: 'all 0.1s' }}>
             {opt}
           </button>
         );
@@ -510,22 +471,22 @@ function Slider({ label, value, min, max, step, unit = '', onChange }: {
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <span style={{ fontSize: 11, color: '#777', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+        <span style={{ fontSize: 11, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'monospace' }}>{label}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <input
             type="number" min={min} max={max} step={step}
             value={value.toFixed(dec)}
             onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(Math.max(min, Math.min(max, v))); }}
-            style={{ width: 52, background: '#232323', border: '1px solid #2e2e2e', color: '#ccc',
+            style={{ width: 52, background: C.bg, border: `1px solid ${C.border}`, color: C.primary,
               fontSize: 10, fontFamily: '"Courier New", monospace', padding: '2px 5px',
-              borderRadius: 3, textAlign: 'right', outline: 'none' }}
+              borderRadius: 0, textAlign: 'right', outline: 'none' }}
           />
-          {unit && <span style={{ fontSize: 10, color: '#888' }}>{unit}</span>}
+          {unit && <span style={{ fontSize: 10, color: C.textDim }}>{unit}</span>}
         </div>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: '#555' }}
+        style={{ width: '100%', accentColor: C.green }}
       />
     </div>
   );
@@ -534,10 +495,10 @@ function Slider({ label, value, min, max, step, unit = '', onChange }: {
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-      <span style={{ fontSize: 12, color: '#888' }}>{label}</span>
+      <span style={{ fontSize: 12, color: C.textDim, fontFamily: 'monospace' }}>{label}</span>
       <button onClick={() => onChange(!value)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-        <div style={{ width: 34, height: 19, borderRadius: 10, background: value ? '#e2e2e2' : '#2e2e2e', position: 'relative', transition: 'background 0.18s' }}>
-          <div style={{ position: 'absolute', top: 3, left: value ? 16 : 3, width: 13, height: 13, borderRadius: '50%', background: value ? '#000' : '#555', transition: 'left 0.18s' }} />
+        <div style={{ width: 34, height: 19, borderRadius: 0, background: value ? C.green : C.surfaceHigh, border: `1px solid ${C.border}`, position: 'relative', transition: 'background 0.18s' }}>
+          <div style={{ position: 'absolute', top: 3, left: value ? 16 : 3, width: 11, height: 11, borderRadius: 0, background: value ? C.bg : C.textDim, transition: 'left 0.18s' }} />
         </div>
       </button>
     </div>
@@ -550,8 +511,8 @@ function ColorPicker({ colors, selected, onChange }: { colors: string[]; selecte
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
         {colors.map((c) => (
           <button key={c} onClick={() => onChange(c)}
-            style={{ width: 26, height: 26, borderRadius: 6, background: c, border: 'none', cursor: 'pointer',
-              outline: selected === c ? '2px solid #fff' : '2px solid transparent', outlineOffset: 1, position: 'relative' }}>
+            style={{ width: 26, height: 26, borderRadius: 0, background: c, border: 'none', cursor: 'pointer',
+              outline: selected === c ? `2px solid ${C.primary}` : '2px solid transparent', outlineOffset: 1, position: 'relative' }}>
             {selected === c && (
               <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 11, color: ['#ffffff','#cccccc','#facc15','#a3e635','#4ade80','#34d399'].includes(c) ? '#000' : '#fff' }}>✓</span>
@@ -559,14 +520,13 @@ function ColorPicker({ colors, selected, onChange }: { colors: string[]; selecte
           </button>
         ))}
       </div>
-      {/* Color wheel */}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-        <div style={{ width: 26, height: 26, borderRadius: 6, background: selected, border: '1px solid #444', position: 'relative', flexShrink: 0 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 0, background: selected, border: `1px solid ${C.border}`, position: 'relative', flexShrink: 0 }}>
           <input type="color" value={selected} onChange={(e) => onChange(e.target.value)}
             style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }}
           />
         </div>
-        <span style={{ fontSize: 11, color: '#888', letterSpacing: '0.06em' }}>Custom — {selected}</span>
+        <span style={{ fontSize: 11, color: C.textDim, letterSpacing: '0.06em', fontFamily: 'monospace' }}>Custom — {selected}</span>
       </label>
     </div>
   );

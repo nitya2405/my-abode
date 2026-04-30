@@ -1,5 +1,12 @@
 import { clamp, makeSeededRandom } from '../utils';
 
+// Mirror-clamp: reflects coordinate at boundary instead of stretching edge pixels
+function mirrorClamp(v: number, max: number): number {
+  if (v < 0) return Math.min(-v, max - 1);
+  if (v >= max) return Math.max(0, 2 * max - v - 2);
+  return v;
+}
+
 // Module-level canvas cache — avoids per-frame allocation during video playback
 let _srcCanvas: HTMLCanvasElement | null = null;
 let _workCanvas: HTMLCanvasElement | null = null;
@@ -140,7 +147,7 @@ function renderGlitch(src: Uint8ClampedArray, w: number, h: number, params: Glas
         const srcX = clamp(bx + dx - shift, 0, w - 1);
         const d = ((by + dy) * w + dstX) * 4;
         const s = ((by + dy) * w + srcX) * 4;
-        out[d] = src[s]; out[d + 1] = src[s + 1]; out[d + 2] = src[s + 2];
+        out[d] = src[s]; out[d + 1] = src[s + 1]; out[d + 2] = src[s + 2]; out[d + 3] = 255;
       }
     }
   }
@@ -187,11 +194,11 @@ function renderDisplacement(
         }
       }
 
-      const sx = clamp(Math.round(x + dx), 0, w - 1);
-      const sy = clamp(Math.round(y + dy), 0, h - 1);
+      const sx = mirrorClamp(Math.round(x + dx), w);
+      const sy = mirrorClamp(Math.round(y + dy), h);
       const di = (y * w + x) * 4;
       const si = (sy * w + sx) * 4;
-      out[di] = src[si]; out[di + 1] = src[si + 1]; out[di + 2] = src[si + 2]; out[di + 3] = src[si + 3];
+      out[di] = src[si]; out[di + 1] = src[si + 1]; out[di + 2] = src[si + 2]; out[di + 3] = 255;
     }
   }
   return out;

@@ -2,17 +2,24 @@ export interface TonekitParams {
   shape: 'circle' | 'square' | 'cross' | 'triangle' | 'line' | 'spiral' | 'ring' | 'hexagon' | 'stroke' | 'polar' | 'capsule' | 'heart';
   sample: number;        // grid cell size 2–80
   scale: number;         // shape size multiplier 0.1–2.0
+  spacing: number;       // spacing multiplier 0.5–4.0 (scales sample)
   rotation: number;      // degrees 0–360
+  contrast: number;      // tone contrast multiplier 0.5–4.0
+  brightness: number;    // brightness offset -1–1
   invert: boolean;
   thresholdMode: boolean;
   threshold: number;     // 0–255
   useOriginalColor: boolean;
   shapeColor: string;
+  primaryColor: string;  // alias UI name for shapeColor
   bgColor: string;
+  secondaryColor: string; // alias UI name for bgColor
   bgTransparent: boolean;
   overlayOriginal: boolean;
   overlayOpacity: number;
   overlayBlur: number;
+  animated: boolean;
+  animationSpeed: number;
 }
 
 let _srcCanvas: HTMLCanvasElement | null = null;
@@ -21,15 +28,20 @@ let _srcCtx: CanvasRenderingContext2D | null = null;
 export function renderTonekit(
   outputCanvas: HTMLCanvasElement,
   imageData: ImageData,
-  params: TonekitParams
+  params: TonekitParams,
+  _timestamp?: number
 ): void {
   const { width, height, data } = imageData;
   outputCanvas.width = width;
   outputCanvas.height = height;
   const ctx = outputCanvas.getContext('2d')!;
 
+  // Resolve alias fields (primaryColor/secondaryColor are UI aliases for shapeColor/bgColor)
+  const resolvedShapeColor = params.primaryColor || params.shapeColor;
+  const resolvedBgColor = params.secondaryColor || params.bgColor;
+
   if (!params.bgTransparent) {
-    ctx.fillStyle = params.bgColor;
+    ctx.fillStyle = resolvedBgColor;
     ctx.fillRect(0, 0, width, height);
   } else {
     ctx.clearRect(0, 0, width, height);
@@ -55,7 +67,9 @@ export function renderTonekit(
     ctx.globalAlpha = 1;
   }
 
-  const sample = Math.max(2, params.sample);
+  const sample = Math.max(2, Math.round(params.sample * (params.spacing ?? 1)));
+  const contrastMul = params.contrast ?? 1;
+  const brightOff = (params.brightness ?? 0) * 128;
   const rad = (params.rotation * Math.PI) / 180;
 
   for (let y = 0; y < height; y += sample) {
@@ -70,7 +84,8 @@ export function renderTonekit(
           count++;
         }
       }
-      const brightness = brightSum / count;
+      const rawBrightness = brightSum / count;
+      const brightness = Math.max(0, Math.min(255, 128 + (rawBrightness - 128) * contrastMul + brightOff));
 
       if (params.thresholdMode && brightness > params.threshold) continue;
 
@@ -86,7 +101,7 @@ export function renderTonekit(
 
       const color = params.useOriginalColor
         ? `rgb(${Math.round(rSum / count)},${Math.round(gSum / count)},${Math.round(bSum / count)})`
-        : params.shapeColor;
+        : resolvedShapeColor;
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
 

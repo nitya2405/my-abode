@@ -23,11 +23,11 @@ const Item = styled(ToggleGroup.Item)`
   font-family: 'Courier New', Courier, monospace;
   font-weight: 600;
   letter-spacing: 0.04em;
-  border-radius: 5px;
-  border: none;
+  border-radius: 0;
+  border: 1px solid rgba(172,199,253,0.15);
   cursor: pointer;
-  background: #2a2a2a;
-  color: #aaa;
+  background: #152028;
+  color: #8e9aaa;
   transition: background 0.1s, color 0.1s;
   white-space: nowrap;
   overflow: hidden;
@@ -35,15 +35,17 @@ const Item = styled(ToggleGroup.Item)`
   outline: none;
 
   &[data-state='on'] {
-    background: #fff;
-    color: #000;
+    background: #acc7fd;
+    color: #08151b;
+    border-color: #acc7fd;
   }
-  &:hover:not([data-state='on']) {
-    background: #333;
-    color: #ccc;
+  &:hover:not([data-state='on']),
+  &.js-hovered:not([data-state='on']) {
+    background: #1c2e3a;
+    color: #acc7fd;
   }
   &:focus-visible {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(172,199,253,0.3);
   }
 `;
 

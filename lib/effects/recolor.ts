@@ -7,6 +7,12 @@ export interface RecolorParams {
   saturation: number;  // 0–200
   brightness: number;  // 0–200
   flow: number;        // 0–10 animation speed
+  gradientColors: string[]; // color stops for gradient map mode
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 /** ANIMATED — call each rAF frame with current timestamp */
@@ -32,12 +38,20 @@ export function renderRecolor(
       l = clamp(l * (params.brightness / 100), 0, 1);
       [nr, ng, nb] = hslToRgb(h, s, l);
     } else {
-      // Gradient map: luminance → hue position along span
+      // Gradient map: luminance → interpolated color through gradient stops
+      const colors = params.gradientColors && params.gradientColors.length >= 2
+        ? params.gradientColors
+        : ['#000000', '#ffffff'];
       const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      const mappedHue = (effectiveHue + lum * params.span) % 360;
-      const sat = 0.75 * (params.saturation / 100);
-      const lig = 0.25 + lum * 0.5 * (params.brightness / 100);
-      [nr, ng, nb] = hslToRgb(mappedHue, sat, clamp(lig, 0, 1));
+      const shifted = ((lum + timestamp * params.flow * 0.00005) % 1 + 1) % 1;
+      const pos = shifted * (colors.length - 1);
+      const idx = Math.min(Math.floor(pos), colors.length - 2);
+      const t = pos - idx;
+      const [r1, g1, b1] = hexToRgb(colors[idx]);
+      const [r2, g2, b2] = hexToRgb(colors[idx + 1]);
+      nr = r1 + (r2 - r1) * t;
+      ng = g1 + (g2 - g1) * t;
+      nb = b1 + (b2 - b1) * t;
     }
 
     out[i] = clamp(nr, 0, 255);

@@ -1,25 +1,35 @@
 import type { Metadata } from 'next';
-import { DM_Sans } from 'next/font/google';
+import { Space_Grotesk } from 'next/font/google';
 import StyledComponentsRegistry from '@/lib/registry';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import './globals.css';
 
-const dmSans = DM_Sans({
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-dm-sans',
+  variable: '--font-space',
 });
 
 export const metadata: Metadata = {
-  title: 'Abode — Creative Image Effects Studio',
-  description: 'Discover creative tools for image art and design.',
+  title: 'Abode — Image Effects Studio',
+  description: 'High-performance image processing and visual effects studio.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={dmSans.variable} data-scroll-behavior="smooth">
-      <body className={`${dmSans.className} bg-[#0a0a0a] text-white antialiased`}>
+    <html lang="en" className={spaceGrotesk.variable}>
+      <body className={`${spaceGrotesk.className} antialiased`} style={{ background: '#08151b', color: '#d7e4ed' }}>
         <StyledComponentsRegistry>
-          {children}
+          <div style={{ display: 'flex' }}>
+            <Sidebar />
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Header />
+              <main style={{ flex: 1 }}>
+                {children}
+              </main>
+            </div>
+          </div>
         </StyledComponentsRegistry>
       </body>
     </html>

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 const COUNT = 110;
 const CONNECT_DIST = 0.28;
-const ACCENTS = [0x4ade80, 0x60a5fa, 0xf472b6, 0xfacc15, 0xa3e635, 0xfb923c, 0xc084fc, 0x67e8f9];
+const ACCENTS = [0xacc7fd, 0x2ae500, 0x8eb4f8, 0x4aefb0, 0xd7e4ed, 0x5ce0ff, 0xacc7fd, 0x2ae500];
 
 export default function HeroCanvas() {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -40,9 +40,9 @@ export default function HeroCanvas() {
       vx[i] = (Math.random() - 0.5) * 0.00055;
       vy[i] = (Math.random() - 0.5) * 0.00055;
 
-      const isAccent = Math.random() < 0.22;
+      const isAccent = Math.random() < 0.28;
       const c = new THREE.Color(
-        isAccent ? ACCENTS[Math.floor(Math.random() * ACCENTS.length)] : 0x242424
+        isAccent ? ACCENTS[Math.floor(Math.random() * ACCENTS.length)] : 0x0d1a22
       );
       colors[i * 3]     = c.r;
       colors[i * 3 + 1] = c.g;
@@ -66,7 +66,7 @@ export default function HeroCanvas() {
 
     // --- connection lines ---
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x1c1c1c,
+      color: 0x152028,
       transparent: true,
       opacity: 0.7,
     });

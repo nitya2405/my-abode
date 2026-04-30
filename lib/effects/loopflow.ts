@@ -4,6 +4,7 @@ export interface LoopflowParams {
   zoom: number;         // 1.0–3.0
   speed: number;        // 0–5 animation speed
   regionPoints: [number, number][] | null;
+  bgColor: string;      // background fill color
 }
 
 /** ANIMATED — animPhase continuously advances the zoom cycle */
@@ -24,7 +25,9 @@ export function renderLoopflow(
   srcCanvas.height = h;
   srcCanvas.getContext('2d')!.putImageData(imageData, 0, 0);
 
-  // Draw base image
+  // Fill background then draw base image
+  ctx.fillStyle = params.bgColor || '#000000';
+  ctx.fillRect(0, 0, w, h);
   ctx.drawImage(srcCanvas, 0, 0);
 
   // Auto region: center 35% of image
@@ -63,7 +66,8 @@ export function renderLoopflow(
       ctx.rotate(angle);
       ctx.translate(-(ix + iw / 2), -(iy + ih / 2));
     }
-    ctx.drawImage(srcCanvas, ix, iy, iw, ih);
+    // Draw only the region portion of the source, scaled into the sub-area
+    ctx.drawImage(srcCanvas, region.x, region.y, region.w, region.h, ix, iy, iw, ih);
     ctx.restore();
   }
 

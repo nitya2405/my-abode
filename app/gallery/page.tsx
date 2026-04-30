@@ -21,30 +21,7 @@ export default function GalleryPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#080808', color: '#fff' }}>
-      {/* Header */}
-      <header style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        background: 'rgba(8,8,8,0.88)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ fontFamily: '"Courier New", Courier, monospace', fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-            Abode
-          </Link>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-            <Link href="/" style={{ fontSize: 13, color: '#555', textDecoration: 'none', letterSpacing: '0.02em' }}>
-              Explore
-            </Link>
-            <Link href="/gallery" style={{ fontSize: 13, color: '#fff', textDecoration: 'none', fontWeight: 500, letterSpacing: '0.02em' }}>
-              Gallery
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', paddingTop: 96, paddingBottom: 72 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', paddingTop: 40, paddingBottom: 72 }}>
         {/* Page title */}
         <div style={{ marginBottom: 40 }}>
           <div style={{ fontFamily: '"Courier New", Courier, monospace', fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.05, marginBottom: 6 }}>
@@ -140,20 +117,16 @@ export default function GalleryPage() {
 }
 
 function GalleryCard({ item, onClick, onDelete }: { item: GalleryItem; onClick: () => void; onDelete: (e: React.MouseEvent) => void }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <div
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="gallery-card"
       style={{
         borderRadius: 10,
-        border: `1px solid ${hovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`,
+        border: '1px solid rgba(255,255,255,0.06)',
         background: '#0d0d0d',
         overflow: 'hidden',
         cursor: 'pointer',
-        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
         transition: 'border-color 0.2s, transform 0.15s',
         position: 'relative',
       }}
@@ -163,7 +136,7 @@ function GalleryCard({ item, onClick, onDelete }: { item: GalleryItem; onClick: 
         <img
           src={item.thumbnail}
           alt={item.effectName}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: hovered ? 'scale(1.04)' : 'scale(1)' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s' }}
         />
         {/* Video badge */}
         {item.type === 'video' && (
@@ -185,9 +158,8 @@ function GalleryCard({ item, onClick, onDelete }: { item: GalleryItem; onClick: 
         </div>
         <button
           onClick={onDelete}
-          style={{ padding: '5px 8px', background: 'transparent', border: '1px solid #333', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: '#666', transition: 'color 0.15s, border-color 0.15s' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.borderColor = '#3f1010'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#444'; (e.currentTarget as HTMLElement).style.borderColor = '#222'; }}
+          className="delete-btn"
+          style={{ padding: '5px 8px', background: 'transparent', border: '1px solid #333', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: '#444', transition: 'color 0.15s, border-color 0.15s' }}
         >
           ✕
         </button>

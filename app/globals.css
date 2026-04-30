@@ -3,94 +3,196 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0a0a0a;
-  --card: #111111;
-  --border: rgba(255,255,255,0.08);
-  --border-hover: rgba(255,255,255,0.18);
-  --text-primary: #ffffff;
-  --text-secondary: #888888;
-  --text-muted: #555555;
+  --bg: #08151b;
+  --surface: #0d1a22;
+  --surface-high: #152028;
+  --surface-highest: #1f2c32;
+  --border: rgba(172,199,253, 0.15);
+  --border-bright: rgba(172,199,253, 0.35);
+  --primary: #acc7fd;
+  --primary-dim: rgba(172,199,253, 0.5);
+  --green: #2ae500;
+  --green-dim: #d7ffc5;
+  --amber: #c7cf00;
+  --text: #d7e4ed;
+  --text-dim: #8e9aaa;
+  --text-muted: #3a4e5c;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
+.cursor-blink { animation: cursor-blink 1s step-end infinite; }
 
-html {
-  scroll-behavior: smooth;
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
+.status-pulse { animation: status-pulse 2s ease-in-out infinite; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 
 body {
   background: var(--bg);
-  color: var(--text-primary);
+  color: var(--text);
   min-height: 100vh;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0a0a0a; }
-::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 3px,
+    rgba(172,199,253, 0.018) 3px,
+    rgba(172,199,253, 0.018) 4px
+  );
+  pointer-events: none;
+  z-index: 9998;
+}
 
-/* Slider styling */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #041016; }
+::-webkit-scrollbar-thumb { background: rgba(172,199,253, 0.2); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(172,199,253, 0.4); }
+
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  background: #2a2a2a;
-  border-radius: 2px;
+  height: 2px;
+  background: rgba(172,199,253, 0.18);
+  border-radius: 0;
   outline: none;
 }
-
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
-  background: #ffffff;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: transform 0.1s ease;
+  width: 10px;
+  height: 10px;
+  background: #acc7fd;
+  border-radius: 0;
+  transition: transform 0.1s;
+}
+input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.25);
+  background: #d7e4ed;
 }
 
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  background: #ffffff;
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-}
-
-/* Select styling */
 select {
   appearance: none;
-  background-color: #1a1a1a;
-  color: white;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
+  background-color: #0d1a22;
+  color: #acc7fd;
+  border: 1px solid rgba(172,199,253,0.25);
+  border-radius: 0;
   padding: 8px 32px 8px 12px;
   font-size: 13px;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23888888'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23acc7fd'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 14px;
   outline: none;
 }
+select:hover { border-color: rgba(172,199,253, 0.5); }
 
-select:focus {
-  border-color: rgba(255,255,255,0.25);
+canvas { cursor: crosshair; }
+
+/* ── CRT & TERMINAL GLOBAL STYLES ── */
+@keyframes hero-flicker {
+  0% { opacity: 1; }
+  25% { opacity: 0.985; }
+  50% { opacity: 1; }
+  75% { opacity: 0.995; }
+  100% { opacity: 1; }
 }
 
-/* Canvas cursor */
-canvas {
-  cursor: crosshair;
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
+
+.hero-crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 1px,
+    rgba(0, 255, 65, 0.05) 1px,
+    rgba(0, 255, 65, 0.05) 2px
+  );
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hero-bg {
+  background-color: #040d12;
+  background-image: radial-gradient(rgba(0, 255, 65, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.hero-flicker {
+  animation: hero-flicker 4s infinite alternate;
+}
+
+.marquee-container {
+  overflow: hidden;
+  white-space: nowrap;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border-top: 1px solid rgba(0, 255, 65, 0.2);
+  padding: 8px 0;
+  z-index: 10;
+}
+
+.marquee-content {
+  display: inline-block;
+  animation: marquee-scroll 30s linear infinite;
+}
+
+/* ── HOVER GLOW STYLES ── */
+.terminal-cta:hover, .terminal-cta.js-hovered {
+  background: #00ff41 !important;
+  color: #000 !important;
+  cursor: pointer;
+}
+
+.module-card:hover .module-card-inner, .module-card.js-hovered .module-card-inner {
+  border-color: var(--hover-accent) !important;
+  box-shadow: 0 0 16px var(--hover-accent) !important;
+  opacity: 0.9;
+}
+
+.sidebar-link:hover:not(.active), .sidebar-link.js-hovered:not(.active) {
+  background: #152028 !important;
+  border-left-color: rgba(172, 199, 253, 0.35) !important;
+}
+
+.gallery-card:hover, .gallery-card.js-hovered {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  transform: translateY(-2px) !important;
+}
+
+.gallery-card:hover img, .gallery-card.js-hovered img {
+  transform: scale(1.04) !important;
+}
+
+.delete-btn:hover, .delete-btn.js-hovered {
+  color: #f87171 !important;
+  border-color: #3f1010 !important;
+}
+
+/* General button fallback */
+button:hover:not(.terminal-cta):not(.delete-btn), button.js-hovered:not(.terminal-cta):not(.delete-btn) {
+  filter: brightness(1.2);
+}
+

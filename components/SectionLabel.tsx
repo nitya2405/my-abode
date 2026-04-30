@@ -13,7 +13,7 @@ const Row = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #222;
+  border-top: 1px solid rgba(172,199,253,0.1);
   padding-top: 12px;
   margin-top: 8px;
   margin-bottom: 8px;
@@ -21,15 +21,16 @@ const Row = styled.div`
 
 const Text = styled.span`
   font-size: 10px;
-  color: #999;
+  color: #acc7fd;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
 `;
 
 const Right = styled.span`
   font-size: 10px;
-  color: #888;
+  color: #8e9aaa;
 `;
 
 export default function SectionLabel({ label, icon = '⊙', rightContent }: SectionLabelProps) {

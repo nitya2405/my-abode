@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import styled from 'styled-components';
 import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
+import { C } from '@/lib/effects-data';
 
 interface EffectLayoutProps {
   effectName: string;
@@ -17,21 +16,19 @@ interface EffectLayoutProps {
   children: React.ReactNode;
 }
 
-/* ── styled primitives ── */
-
 const Shell = styled.div`
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 44px);
   overflow: hidden;
-  font-family: system-ui, sans-serif;
-  background: #0a0a0a;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  background: ${C.bg};
 `;
 
 const Panel = styled.div`
-  width: 360px;
-  min-width: 360px;
-  background: #1a1a1a;
-  border-right: 1px solid #222;
+  width: 320px;
+  min-width: 320px;
+  background: ${C.surface};
+  border-right: 1px solid ${C.border};
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -48,41 +45,27 @@ const PanelBody = styled.div`
   flex-direction: column;
 `;
 
-const BackLink = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #888;
-  text-decoration: none;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  margin-bottom: 14px;
-  display: block;
-  transition: color 0.15s;
-  &:hover { color: #bbb; }
-`;
-
 const EffectName = styled.div`
   font-family: 'Courier New', Courier, monospace;
   font-size: 21px;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #fff;
+  color: ${C.text};
   margin-bottom: 8px;
+  text-shadow: 0 0 20px rgba(172,199,253,0.2);
 `;
 
 const Description = styled.p`
   font-size: 12px;
-  color: #888;
+  color: ${C.textDim};
   line-height: 1.65;
   margin: 0 0 14px;
 `;
 
 const Stage = styled.div`
   flex: 1;
-  background: #0f0f0f;
+  background: ${C.bg};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,21 +80,21 @@ const Canvas = styled.canvas<{ $visible: boolean }>`
   display: ${(p) => (p.$visible ? 'block' : 'none')};
 `;
 
-/* ── shared styles ── */
-const sHdr: React.CSSProperties = { padding: '6px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' };
+const sHdr: React.CSSProperties = {
+  padding: '6px 12px 4px', fontSize: 9, color: C.textMuted,
+  letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: 'monospace',
+};
 const btnStyle: React.CSSProperties = {
-  flex: 1, padding: '7px 10px', background: '#222', color: '#bbb',
-  border: '1px solid #333', borderRadius: 6, cursor: 'pointer',
+  flex: 1, padding: '7px 10px', background: C.surfaceHigh, color: C.primary,
+  border: `1px solid ${C.border}`, borderRadius: 0, cursor: 'pointer',
   fontSize: 11, fontFamily: '"Courier New", monospace', fontWeight: 600,
   letterSpacing: '0.08em',
 };
 const menuItemStyle: React.CSSProperties = {
   display: 'block', width: '100%', padding: '8px 14px', background: 'transparent',
-  color: '#bbb', border: 'none', cursor: 'pointer', textAlign: 'left',
+  color: C.primary, border: 'none', cursor: 'pointer', textAlign: 'left',
   fontSize: 11, fontFamily: '"Courier New", monospace', letterSpacing: '0.05em',
 };
-
-/* ── component ── */
 
 export default function EffectLayout({
   effectName,
@@ -134,8 +117,7 @@ export default function EffectLayout({
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
+      c.width = img.width; c.height = img.height;
       const ctx = c.getContext('2d')!;
       ctx.drawImage(img, 0, 0);
       onImageLoad(ctx.getImageData(0, 0, img.width, img.height));
@@ -159,11 +141,7 @@ export default function EffectLayout({
   const exportVideo = (fmt: VideoFormat, secs: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !hasImage || isRecording) return;
-    startCanvasRecording(
-      canvas, fmt, secs, effectName.toLowerCase(),
-      () => setIsRecording(true),
-      () => setIsRecording(false),
-    );
+    startCanvasRecording(canvas, fmt, secs, effectName.toLowerCase(), () => setIsRecording(true), () => setIsRecording(false));
     setShowExport(false);
   };
 
@@ -171,46 +149,30 @@ export default function EffectLayout({
     const canvas = canvasRef.current;
     if (!canvas || !hasImage) return;
     const ok = saveCanvasToGallery(canvas, effectName, effectName.toLowerCase().replace(/\s+/g, '-'), 'image');
-    if (ok) {
-      setSavedFeedback(true);
-      setTimeout(() => setSavedFeedback(false), 1800);
-    }
+    if (ok) { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 1800); }
   };
 
   return (
     <Shell onClick={() => showExport && setShowExport(false)}>
       <Panel>
         <PanelTop>
-          <BackLink href="/">
-            <ChevronLeft size={10} />← Back
-          </BackLink>
-
           <EffectName>{effectName}</EffectName>
           {description && <Description>{description}</Description>}
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
 
           <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => fileInputRef.current?.click()} style={btnStyle}>
               Upload
             </button>
 
-            <button
-              onClick={handleSave}
-              style={{
-                ...btnStyle, flex: 'none',
-                background: savedFeedback ? '#14532d' : '#222',
-                color: savedFeedback ? '#4ade80' : hasImage ? '#bbb' : '#444',
-                cursor: hasImage ? 'pointer' : 'not-allowed',
-                border: savedFeedback ? '1px solid #166534' : '1px solid #333',
-              }}
-            >
+            <button onClick={handleSave} style={{
+              ...btnStyle, flex: 'none',
+              background: savedFeedback ? '#0a3300' : C.surfaceHigh,
+              color: savedFeedback ? C.green : hasImage ? C.primary : C.textMuted,
+              border: savedFeedback ? `1px solid ${C.green}40` : `1px solid ${C.border}`,
+              cursor: hasImage ? 'pointer' : 'not-allowed',
+            }}>
               {savedFeedback ? '✓ Saved' : 'Save'}
             </button>
 
@@ -219,8 +181,9 @@ export default function EffectLayout({
                 onClick={() => hasImage && !isRecording && setShowExport((v) => !v)}
                 style={{
                   ...btnStyle, width: '100%',
-                  background: isRecording ? '#7f1d1d' : '#222',
-                  color: isRecording ? '#fca5a5' : hasImage ? '#bbb' : '#444',
+                  background: isRecording ? '#3b0a0a' : C.surfaceHigh,
+                  color: isRecording ? '#ff6b6b' : hasImage ? C.primary : C.textMuted,
+                  border: isRecording ? '1px solid #ff4a4a40' : `1px solid ${C.border}`,
                   cursor: isRecording ? 'wait' : hasImage ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -228,14 +191,14 @@ export default function EffectLayout({
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#131313', border: '1px solid #2a2a2a', borderRadius: 8, overflow: 'hidden', zIndex: 200 }}>
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, background: '#041016', border: `1px solid ${C.border}`, overflow: 'hidden', zIndex: 200 }}>
                   <div style={sHdr}>Image frame</div>
                   {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItemStyle}>{f}</button>
                   ))}
                   {videoFormats.map((fmt) => (
                     <div key={fmt.mime}>
-                      <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
+                      <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
                       <div style={sHdr}>Video — {fmt.label}</div>
                       {[5, 10, 30].map((s) => (
                         <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItemStyle}>Clip — {s}s</button>
@@ -248,22 +211,22 @@ export default function EffectLayout({
           </div>
         </PanelTop>
 
-        <div style={{ borderTop: '1px solid #222' }} />
-        <PanelBody>
-          {children}
-        </PanelBody>
+        <div style={{ borderTop: `1px solid ${C.border}` }} />
+        <PanelBody>{children}</PanelBody>
       </Panel>
 
       <Stage>
         {!hasImage && (
           <div
             onClick={() => fileInputRef.current?.click()}
-            style={{ color: '#3a3a3a', textAlign: 'center', userSelect: 'none', cursor: 'pointer' }}
+            style={{ color: 'rgba(172,199,253,0.08)', textAlign: 'center', userSelect: 'none', cursor: 'pointer' }}
           >
             <div style={{ fontFamily: '"Courier New", monospace', fontSize: 52, fontWeight: 900, letterSpacing: '0.1em', marginBottom: 12 }}>
               {effectName}
             </div>
-            <div style={{ fontSize: 13, color: '#666', letterSpacing: '0.05em' }}>Click to upload an image</div>
+            <div style={{ fontSize: 13, color: 'rgba(172,199,253,0.25)', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
+              [ CLICK TO UPLOAD IMAGE ]
+            </div>
           </div>
         )}
         <Canvas ref={canvasRef} $visible={hasImage} />
