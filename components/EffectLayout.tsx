@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import styled from 'styled-components';
 import { saveCanvasToGallery } from '@/lib/gallery';
+import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 
 interface EffectLayoutProps {
   effectName: string;
@@ -96,7 +97,8 @@ const Canvas = styled.canvas<{ $visible: boolean }>`
   display: ${(p) => (p.$visible ? 'block' : 'none')};
 `;
 
-/* ── shared button style ── */
+/* ── shared styles ── */
+const sHdr: React.CSSProperties = { padding: '6px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' };
 const btnStyle: React.CSSProperties = {
   flex: 1, padding: '7px 10px', background: '#222', color: '#bbb',
   border: '1px solid #333', borderRadius: 6, cursor: 'pointer',
@@ -123,6 +125,8 @@ export default function EffectLayout({
   const [isRecording, setIsRecording] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [videoFormats, setVideoFormats] = useState<VideoFormat[]>([]);
+  useEffect(() => { setVideoFormats(detectVideoFormats()); }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -152,29 +156,14 @@ export default function EffectLayout({
     setShowExport(false);
   };
 
-  const exportWebM = (secs: number) => {
+  const exportVideo = (fmt: VideoFormat, secs: number) => {
     const canvas = canvasRef.current;
-    if (!canvas || !hasImage || isRecording || !('captureStream' in canvas)) return;
-    const stream = (canvas as any).captureStream(30);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
-    const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
-    recorder.onstop = () => {
-      setIsRecording(false);
-      const blob = new window.Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${effectName.toLowerCase()}.webm`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-    setIsRecording(true);
-    recorder.start(100);
-    setTimeout(() => recorder.stop(), secs * 1000);
+    if (!canvas || !hasImage || isRecording) return;
+    startCanvasRecording(
+      canvas, fmt, secs, effectName.toLowerCase(),
+      () => setIsRecording(true),
+      () => setIsRecording(false),
+    );
     setShowExport(false);
   };
 
@@ -240,14 +229,18 @@ export default function EffectLayout({
 
               {showExport && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#131313', border: '1px solid #2a2a2a', borderRadius: 8, overflow: 'hidden', zIndex: 200 }}>
-                  <div style={{ padding: '6px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Image frame</div>
+                  <div style={sHdr}>Image frame</div>
                   {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItemStyle}>{f}</button>
                   ))}
-                  <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
-                  <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video capture (WebM)</div>
-                  {[5, 10, 30].map((s) => (
-                    <button key={s} onClick={() => exportWebM(s)} style={menuItemStyle}>Clip — {s}s</button>
+                  {videoFormats.map((fmt) => (
+                    <div key={fmt.mime}>
+                      <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
+                      <div style={sHdr}>Video — {fmt.label}</div>
+                      {[5, 10, 30].map((s) => (
+                        <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItemStyle}>Clip — {s}s</button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}

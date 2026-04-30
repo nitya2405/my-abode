@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { renderASCIIKit, ASCIIKitParams } from '@/lib/effects/asciikit';
 import { saveCanvasToGallery } from '@/lib/gallery';
+import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 
 const MAX_DIM = 1200;
 
@@ -87,8 +88,10 @@ export default function ASCIIKitPage() {
   const [videoPaused, setVideoPaused] = useState(false);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [videoFormats, setVideoFormats] = useState<VideoFormat[]>([]);
   const paramsRef = useRef(params);
   useEffect(() => { paramsRef.current = params; }, [params]);
+  useEffect(() => { setVideoFormats(detectVideoFormats()); }, []);
 
   const hasMedia = mediaType !== null;
 
@@ -182,41 +185,15 @@ export default function ASCIIKitPage() {
     setShowExport(false);
   };
 
-  const exportWebM = (secs: number, fromStart = false) => {
+  const exportVideo = (fmt: VideoFormat, secs: number, fromStart = false) => {
     const canvas = canvasRef.current;
-    if (!canvas || isRecording || !('captureStream' in canvas)) return;
-
-    const doRecord = () => {
-      const stream = (canvas as any).captureStream(30);
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9'
-        : 'video/webm';
-      const recorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 12_000_000,
-      });
-      const chunks: BlobPart[] = [];
-      recorder.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
-      recorder.onstop = () => {
-        setIsRecording(false);
-        const blob = new window.Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'asciikit.webm'; a.click();
-        URL.revokeObjectURL(url);
-      };
-      setIsRecording(true);
-      recorder.start(100); // collect chunks every 100ms for better quality
-      setTimeout(() => recorder.stop(), secs * 1000);
-    };
-
-    if (fromStart && videoRef.current) {
-      const vid = videoRef.current;
-      vid.currentTime = 0;
-      vid.onseeked = () => { vid.onseeked = null; doRecord(); };
-    } else {
-      doRecord();
-    }
+    if (!canvas || isRecording) return;
+    startCanvasRecording(
+      canvas, fmt, secs, 'asciikit',
+      () => setIsRecording(true),
+      () => setIsRecording(false),
+      fromStart ? videoRef.current : null,
+    );
     setShowExport(false);
   };
 
@@ -289,15 +266,20 @@ export default function ASCIIKitPage() {
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItem}>{f}</button>
                   ))}
                   <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
-                  <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video capture (WebM)</div>
-                  {[5, 10, 30].map((s) => (
-                    <button key={s} onClick={() => exportWebM(s)} style={menuItem}>Clip — {s}s from now</button>
+                  {videoFormats.map((fmt) => (
+                    <div key={fmt.mime}>
+                      <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
+                      <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
+                      {[5, 10, 30].map((s) => (
+                        <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItem}>Clip — {s}s</button>
+                      ))}
+                      {videoDuration && (
+                        <button onClick={() => exportVideo(fmt, Math.ceil(videoDuration), true)} style={{ ...menuItem, color: '#4ade80' }}>
+                          Full — {Math.round(videoDuration)}s (from start)
+                        </button>
+                      )}
+                    </div>
                   ))}
-                  {videoDuration && (
-                    <button onClick={() => exportWebM(Math.ceil(videoDuration), true)} style={{ ...menuItem, color: '#4ade80' }}>
-                      Full video — {Math.round(videoDuration)}s (from start)
-                    </button>
-                  )}
                 </div>
               )}
             </div>

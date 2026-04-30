@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { saveCanvasToGallery } from '@/lib/gallery';
+import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 import {
   detectBlobs,
   renderImageTrack,
@@ -32,6 +33,8 @@ export default function BabyTrackPage() {
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
+  const [videoFormats, setVideoFormats] = useState<VideoFormat[]>([]);
+  useEffect(() => { setVideoFormats(detectVideoFormats()); }, []);
   const [params, setParams] = useState<ImageTrackParams>({
     shape: 'circle',
     regionStyle: 'scope',
@@ -148,27 +151,14 @@ export default function BabyTrackPage() {
     setShowExport(false);
   };
 
-  const exportWebM = (secs: number) => {
+  const exportVideo = (fmt: VideoFormat, secs: number) => {
     const canvas = canvasRef.current;
-    if (!canvas || !isActive || isRecording || !('captureStream' in canvas)) return;
-    const stream = (canvas as any).captureStream(30);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
-    const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
-    recorder.onstop = () => {
-      setIsRecording(false);
-      const blob = new window.Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'babytrack.webm'; a.click();
-      URL.revokeObjectURL(url);
-    };
-    setIsRecording(true);
-    recorder.start(100);
-    setTimeout(() => recorder.stop(), secs * 1000);
+    if (!canvas || !isActive || isRecording) return;
+    startCanvasRecording(
+      canvas, fmt, secs, 'babytrack',
+      () => setIsRecording(true),
+      () => setIsRecording(false),
+    );
     setShowExport(false);
   };
 
@@ -257,10 +247,14 @@ export default function BabyTrackPage() {
                 {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                   <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItem}>{f}</button>
                 ))}
-                <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
-                <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video capture (WebM)</div>
-                {[5, 10, 30].map((s) => (
-                  <button key={s} onClick={() => exportWebM(s)} style={menuItem}>Clip — {s}s</button>
+                {videoFormats.map((fmt) => (
+                  <div key={fmt.mime}>
+                    <div style={{ borderTop: '1px solid #222', margin: '4px 0' }} />
+                    <div style={{ padding: '4px 12px 4px', fontSize: 9, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
+                    {[5, 10, 30].map((s) => (
+                      <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItem}>Clip — {s}s</button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

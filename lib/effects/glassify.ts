@@ -1,5 +1,19 @@
 import { clamp, makeSeededRandom } from '../utils';
 
+// Module-level canvas cache — avoids per-frame allocation during video playback
+let _srcCanvas: HTMLCanvasElement | null = null;
+let _workCanvas: HTMLCanvasElement | null = null;
+let _blurSrcCanvas: HTMLCanvasElement | null = null;
+let _blurOutCanvas: HTMLCanvasElement | null = null;
+
+function getCanvas(ref: { current: HTMLCanvasElement | null }, w: number, h: number): HTMLCanvasElement {
+  if (!ref.current) ref.current = document.createElement('canvas');
+  if (ref.current.width !== w || ref.current.height !== h) {
+    ref.current.width = w; ref.current.height = h;
+  }
+  return ref.current;
+}
+
 export interface GlassifyParams {
   effect: 'none' | 'radial' | 'glitch' | 'stripe' | 'organic' | 'ripple';
   // Radial
@@ -23,14 +37,16 @@ export interface GlassifyParams {
 }
 
 function applyCanvasBlur(pixels: Uint8ClampedArray, w: number, h: number, px: number): ImageData {
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
+  const c = getCanvas({ current: _blurSrcCanvas }, w, h);
+  _blurSrcCanvas = c;
   c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(pixels), w, h), 0, 0);
-  const c2 = document.createElement('canvas');
-  c2.width = w; c2.height = h;
+  const c2 = getCanvas({ current: _blurOutCanvas }, w, h);
+  _blurOutCanvas = c2;
   const ctx2 = c2.getContext('2d')!;
   ctx2.filter = `blur(${px}px)`;
+  ctx2.clearRect(0, 0, w, h);
   ctx2.drawImage(c, 0, 0);
+  ctx2.filter = 'none';
   return ctx2.getImageData(0, 0, w, h);
 }
 
@@ -39,12 +55,12 @@ function renderRadial(imageData: ImageData, params: GlassifyParams, timestamp: n
   const cx = w / 2, cy = h / 2;
   const maxR = Math.min(w, h) * 0.5 * params.radius;
 
-  const srcCanvas = document.createElement('canvas');
-  srcCanvas.width = w; srcCanvas.height = h;
+  const srcCanvas = getCanvas({ current: _srcCanvas }, w, h);
+  _srcCanvas = srcCanvas;
   srcCanvas.getContext('2d')!.putImageData(imageData, 0, 0);
 
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
+  const canvas = getCanvas({ current: _workCanvas }, w, h);
+  _workCanvas = canvas;
   const ctx = canvas.getContext('2d')!;
 
   const animAngle = (timestamp * 0.001) * params.rotation;
