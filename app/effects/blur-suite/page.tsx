@@ -5,6 +5,7 @@ import { renderBlurSuite, BlurSuiteParams } from '@/lib/effects/blur-suite';
 import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 import { C } from '@/lib/effects-data';
+import { useIsMobile } from '@/lib/useIsMobile';
 
 const MODES = ['Linear', 'Radial', 'Zoom', 'Wave', 'TB', 'LR'];
 
@@ -135,10 +136,19 @@ export default function BlurSuitePage() {
 
   const set = (patch: Partial<BlurSuiteParams>) => setParams((p) => ({ ...p, ...patch }));
   const hasContent = sourceMode === 'image' ? !!imageData : hasVideo;
+  const isMobile = useIsMobile();
 
   return (
     <div
-      style={{ display: 'flex', height: 'calc(100vh - 44px)', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', background: C.bg }}
+      style={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        height: isMobile ? 'auto' : 'calc(100vh - 44px)',
+        minHeight: isMobile ? 'calc(100vh - 44px)' : undefined,
+        overflow: isMobile ? 'visible' : 'hidden',
+        fontFamily: 'system-ui, sans-serif',
+        background: C.bg,
+      }}
       onClick={() => showExport && setShowExport(false)}
     >
       <video ref={videoRef} style={{ display: 'none' }} playsInline />
@@ -152,7 +162,15 @@ export default function BlurSuitePage() {
       />
 
       {/* ── LEFT PANEL ── */}
-      <div style={{ width: 320, minWidth: 320, background: C.surface, borderRight: `1px solid ${C.border}`, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        width: isMobile ? '100%' : 320,
+        minWidth: isMobile ? '100%' : 320,
+        background: C.surface,
+        borderRight: isMobile ? 'none' : `1px solid ${C.border}`,
+        borderTop: isMobile ? `1px solid ${C.border}` : 'none',
+        overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column',
+        order: isMobile ? 2 : undefined,
+      }}>
 
         <div style={{ padding: '16px 18px 14px' }}>
           <div style={{ fontFamily: '"Courier New", monospace', fontSize: 21, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.text, marginBottom: 8, textShadow: '0 0 20px rgba(172,199,253,0.2)' }}>
@@ -238,7 +256,14 @@ export default function BlurSuitePage() {
       </div>
 
       {/* ── RIGHT STAGE ── */}
-      <div style={{ flex: 1, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+      <div style={{
+        flex: isMobile ? 'none' : 1,
+        height: isMobile ? '42vh' : undefined,
+        minHeight: isMobile ? 240 : undefined,
+        background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', position: 'relative',
+        order: isMobile ? 1 : undefined,
+      }}>
         {!hasContent && (
           <div
             onClick={() => fileInputRef.current?.click()}

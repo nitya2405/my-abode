@@ -6,6 +6,7 @@ import { renderASCIIKit, ASCIIKitParams } from '@/lib/effects/asciikit';
 import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 import { C, effects } from '@/lib/effects-data';
+import { useIsMobile } from '@/lib/useIsMobile';
 
 const MAX_DIM = 1200;
 
@@ -207,13 +208,31 @@ export default function ASCIIKitPage() {
   const set = <K extends keyof ASCIIKitParams>(key: K) =>
     (val: ASCIIKitParams[K]) => setParams((p) => ({ ...p, [key]: val }));
 
+  const isMobile = useIsMobile();
+
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 44px)', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', background: C.bg }}
+    <div style={{
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      height: isMobile ? 'auto' : 'calc(100vh - 44px)',
+      minHeight: isMobile ? 'calc(100vh - 44px)' : undefined,
+      overflow: isMobile ? 'visible' : 'hidden',
+      fontFamily: 'system-ui, sans-serif',
+      background: C.bg,
+    }}
       onClick={() => showExport && setShowExport(false)}>
       <video ref={videoRef} style={{ display: 'none' }} loop muted playsInline />
 
       {/* ── LEFT PANEL ── */}
-      <div style={{ width: 320, minWidth: 320, background: C.surface, borderRight: `1px solid ${C.border}`, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        width: isMobile ? '100%' : 320,
+        minWidth: isMobile ? '100%' : 320,
+        background: C.surface,
+        borderRight: isMobile ? 'none' : `1px solid ${C.border}`,
+        borderTop: isMobile ? `1px solid ${C.border}` : 'none',
+        overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column',
+        order: isMobile ? 2 : undefined,
+      }}>
 
         <div style={{ padding: '16px 18px 14px' }}>
           <div style={{ fontFamily: '"Courier New", monospace', fontSize: 21, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.text, marginBottom: 8, textShadow: '0 0 20px rgba(172,199,253,0.2)' }}>
@@ -359,7 +378,7 @@ export default function ASCIIKitPage() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL ── */}
+      {/* ── RIGHT STAGE ── */}
       <VideoStage
         hasMedia={hasMedia}
         mediaType={mediaType}
@@ -367,25 +386,35 @@ export default function ASCIIKitPage() {
         onUpload={() => uploadRef.current?.click()}
         onToggle={toggleVideo}
         canvasRef={canvasRef}
+        isMobile={isMobile}
       />
     </div>
   );
 }
 
-function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef }: {
+function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef, isMobile }: {
   hasMedia: boolean;
   mediaType: 'image' | 'video' | null;
   videoPaused: boolean;
   onUpload: () => void;
   onToggle: () => void;
   canvasRef: React.RefObject<HTMLCanvasElement>;
+  isMobile: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const isVideo = mediaType === 'video' && hasMedia;
 
   return (
     <div
-      style={{ flex: 1, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', cursor: isVideo ? 'pointer' : 'default' }}
+      style={{
+        flex: isMobile ? 'none' : 1,
+        height: isMobile ? '42vh' : undefined,
+        minHeight: isMobile ? 240 : undefined,
+        background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', position: 'relative',
+        cursor: isVideo ? 'pointer' : 'default',
+        order: isMobile ? 1 : undefined,
+      }}
       onMouseEnter={() => isVideo && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => isVideo && onToggle()}

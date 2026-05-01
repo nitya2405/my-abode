@@ -22,6 +22,12 @@ const Shell = styled.div`
   overflow: hidden;
   font-family: 'Space Grotesk', system-ui, sans-serif;
   background: ${C.bg};
+  @media (max-width: 767px) {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 44px);
+    overflow: visible;
+  }
 `;
 
 const Panel = styled.div`
@@ -33,6 +39,13 @@ const Panel = styled.div`
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  @media (max-width: 767px) {
+    width: 100%;
+    min-width: 100%;
+    border-right: none;
+    border-top: 1px solid ${C.border};
+    order: 2;
+  }
 `;
 
 const PanelTop = styled.div`
@@ -71,6 +84,12 @@ const Stage = styled.div`
   justify-content: center;
   overflow: hidden;
   position: relative;
+  @media (max-width: 767px) {
+    flex: none;
+    height: 42vh;
+    min-height: 240px;
+    order: 1;
+  }
 `;
 
 const Canvas = styled.canvas<{ $visible: boolean }>`

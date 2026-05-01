@@ -26,15 +26,15 @@ export default function HomePage() {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
 
         {/* ── HERO SECTION (CRT TERMINAL REDESIGN) ── */}
-        <section className="hero-bg hero-crt hero-flicker" style={{ 
+        <section className="hero-bg hero-crt hero-flicker hero-section-mobile" style={{
           height: '52vh', minHeight: 460, position: 'relative', overflow: 'hidden',
-          borderBottom: `1px solid rgba(0, 255, 65, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center' 
+          borderBottom: `1px solid rgba(0, 255, 65, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div style={{ position: 'absolute', inset: 0, opacity: 0.15 }}>
             <HeroCanvas />
           </div>
-          
-          <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', padding: '0 40px' }}>
+
+          <div className="hero-content-mobile" style={{ position: 'relative', zIndex: 10, textAlign: 'center', padding: '0 40px' }}>
             {/* Boot Sequence */}
             <div style={{ 
               fontFamily: 'monospace', fontSize: 11, color: '#00ff41', 
@@ -43,16 +43,16 @@ export default function HomePage() {
               {bootText}<span className="cursor-blink">_</span>
             </div>
 
-            <h1 style={{ 
-              fontFamily: 'monospace', fontSize: 56, fontWeight: 900, 
+            <h1 className="hero-title-mobile" style={{
+              fontFamily: 'monospace', fontSize: 56, fontWeight: 900,
               color: '#d7ffc5', letterSpacing: '0.25em', marginBottom: 16,
               textShadow: '0 0 10px #00ff41, 0 0 20px rgba(0, 255, 65, 0.4)'
             }}>
               MY_HUMBLE_ABODE
             </h1>
-            
-            <p style={{ 
-              fontSize: 13, color: 'rgba(0, 255, 65, 0.7)', letterSpacing: '0.08em', 
+
+            <p className="hero-desc-mobile" style={{
+              fontSize: 13, color: 'rgba(0, 255, 65, 0.7)', letterSpacing: '0.08em',
               maxWidth: 620, margin: '0 auto 32px', lineHeight: 1.6, fontFamily: 'monospace'
             }}>
               HIGH PERFORMANCE IMAGE PROCESSING KERNELS & NEURAL VISION MODELS.<br />
@@ -83,7 +83,7 @@ export default function HomePage() {
         </section>
 
         {/* ── MODULES ── */}
-        <section id="modules" style={{ padding: '40px 40px 64px' }}>
+        <section id="modules" className="modules-section-mobile" style={{ padding: '40px 40px 64px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 8, height: 8, background: C.primary }} />
@@ -97,7 +97,7 @@ export default function HomePage() {
           </div>
 
           {/* Module grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+          <div className="modules-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
             {effects.map((effect) => (
               <ModuleCard key={effect.slug} effect={effect} />
             ))}
@@ -105,7 +105,7 @@ export default function HomePage() {
         </section>
 
         {/* Footer */}
-        <footer style={{ borderTop: `1px solid ${C.border}`, padding: '20px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <footer className="footer-mobile" style={{ borderTop: `1px solid ${C.border}`, padding: '20px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
             ABODE // v1.0
           </span>

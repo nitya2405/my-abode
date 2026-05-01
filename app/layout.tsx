@@ -1,8 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk } from 'next/font/google';
 import StyledComponentsRegistry from '@/lib/registry';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import BottomNav from '@/components/BottomNav';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -14,6 +15,12 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'Abode — Image Effects Studio',
   description: 'High-performance image processing and visual effects studio.',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </main>
             </div>
           </div>
+          <BottomNav />
         </StyledComponentsRegistry>
       </body>
     </html>

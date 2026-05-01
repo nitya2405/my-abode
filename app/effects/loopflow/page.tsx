@@ -142,11 +142,12 @@ export default function LoopflowPage() {
     const canvas = canvasRef.current;
     if (!canvas || !drawMode) return;
     pendingPointsRef.current = [];
-    const onClick = (e: MouseEvent) => {
+
+    const recordPoint = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
       const pt: [number, number] = [
-        (e.clientX - rect.left) / rect.width,
-        (e.clientY - rect.top) / rect.height,
+        (clientX - rect.left) / rect.width,
+        (clientY - rect.top) / rect.height,
       ];
       const next = [...pendingPointsRef.current, pt];
       pendingPointsRef.current = next;
@@ -156,9 +157,19 @@ export default function LoopflowPage() {
         pendingPointsRef.current = [];
       }
     };
+
+    const onClick = (e: MouseEvent) => recordPoint(e.clientX, e.clientY);
+    const onTouch = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      recordPoint(touch.clientX, touch.clientY);
+    };
+
     canvas.addEventListener('click', onClick);
+    canvas.addEventListener('touchend', onTouch, { passive: false });
     return () => {
       canvas.removeEventListener('click', onClick);
+      canvas.removeEventListener('touchend', onTouch);
     };
   }, [drawMode]);
 

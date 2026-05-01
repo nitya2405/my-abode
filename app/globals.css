@@ -196,3 +196,69 @@ button:hover:not(.terminal-cta):not(.delete-btn), button.js-hovered:not(.termina
   filter: brightness(1.2);
 }
 
+/* ── RESPONSIVE UTILITIES ── */
+.mobile-hide { display: flex; }
+.desktop-hide { display: none; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav { display: none; }
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  padding: 6px 20px;
+  min-width: 60px;
+}
+
+/* ── MOBILE BREAKPOINT ── */
+@media (max-width: 767px) {
+  /* Utility toggles */
+  .mobile-hide { display: none !important; }
+  .desktop-hide { display: flex !important; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #041016;
+    border-top: 1px solid rgba(172,199,253,0.15);
+    z-index: 2000;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Give pages room above bottom nav */
+  body { padding-bottom: 56px; }
+
+  /* Make range inputs taller for touch */
+  input[type="range"] { height: 4px; }
+  input[type="range"]::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Hero section */
+  .hero-title-mobile { font-size: 32px !important; letter-spacing: 0.15em !important; }
+  .hero-section-mobile {
+    height: auto !important;
+    min-height: 280px !important;
+    padding: 40px 0 48px !important;
+  }
+  .hero-content-mobile { padding: 0 20px !important; }
+  .hero-desc-mobile { font-size: 11px !important; }
+
+  /* Module grid */
+  .modules-section-mobile { padding: 24px 16px 48px !important; }
+  .modules-grid-mobile { grid-template-columns: 1fr !important; gap: 8px !important; }
+
+  /* Footer */
+  .footer-mobile { padding: 16px !important; flex-direction: column !important; gap: 4px !important; }
+}
+
