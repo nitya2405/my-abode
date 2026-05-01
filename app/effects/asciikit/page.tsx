@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { renderASCIIKit, ASCIIKitParams } from '@/lib/effects/asciikit';
 import { saveCanvasToGallery } from '@/lib/gallery';
-import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
+import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat } from '@/lib/export';
 import { C, effects } from '@/lib/effects-data';
 import { useIsMobile } from '@/lib/useIsMobile';
 
@@ -86,6 +86,8 @@ export default function ASCIIKitPage() {
   const [params, setParams] = useState<ASCIIKitParams>(DEFAULT_PARAMS);
   const [showExport, setShowExport] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [videoPaused, setVideoPaused] = useState(false);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -175,6 +177,34 @@ export default function ASCIIKitPage() {
     }
   };
 
+  const handleExportFull = async () => {
+    if (!videoRef.current || !canvasRef.current || isExporting) return;
+    cancelAnimationFrame(videoRafRef.current);
+    setIsExporting(true);
+    setExportProgress(0);
+    setShowExport(false);
+    const MAX = 1200;
+    await exportVideoFull(
+      videoRef.current,
+      canvasRef.current,
+      (vid) => {
+        let w = vid.videoWidth, h = vid.videoHeight;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        if (!videoCanvasRef.current) videoCanvasRef.current = document.createElement('canvas');
+        const vc = videoCanvasRef.current;
+        if (vc.width !== w || vc.height !== h) { vc.width = w; vc.height = h; }
+        const vCtx = vc.getContext('2d')!;
+        vCtx.drawImage(vid, 0, 0, w, h);
+        renderASCIIKit(canvasRef.current!, vCtx.getImageData(0, 0, w, h), paramsRef.current);
+      },
+      'asciikit',
+      setExportProgress,
+    );
+    setIsExporting(false);
+    setVideoPaused(false);
+  };
+
   const exportImage = (fmt: 'png' | 'jpeg' | 'webp') => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -261,16 +291,16 @@ export default function ASCIIKitPage() {
 
             <div style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasMedia && !isRecording && setShowExport((v) => !v)}
+                onClick={() => hasMedia && !isRecording && !isExporting && setShowExport((v) => !v)}
                 style={{
                   ...btnStyle, width: '100%',
-                  background: isRecording ? '#3b0a0a' : C.surfaceHigh,
-                  color: isRecording ? '#ff6b6b' : hasMedia ? C.primary : C.textMuted,
-                  border: isRecording ? '1px solid #ff4a4a40' : `1px solid ${C.border}`,
-                  cursor: isRecording ? 'wait' : hasMedia ? 'pointer' : 'not-allowed',
+                  background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
+                  color: isExporting ? C.green : isRecording ? '#ff6b6b' : hasMedia ? C.primary : C.textMuted,
+                  border: `1px solid ${isRecording ? '#ff4a4a40' : C.border}`,
+                  cursor: isExporting || isRecording ? 'wait' : hasMedia ? 'pointer' : 'not-allowed',
                 }}
               >
-                {isRecording ? '● REC' : 'Export ▾'}
+                {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
 
               {showExport && (
@@ -279,16 +309,23 @@ export default function ASCIIKitPage() {
                   {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItem}>{f}</button>
                   ))}
-                  <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
-                  {videoFormats.map((fmt) => (
-                    <div key={fmt.mime}>
+                  {mediaType === 'video' ? (
+                    <>
                       <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
-                      <div style={{ padding: '4px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
-                      {[5, 10, 30].map((s) => (
-                        <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItem}>Clip — {s}s</button>
-                      ))}
-                    </div>
-                  ))}
+                      <div style={{ padding: '4px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Full Video</div>
+                      <button onClick={handleExportFull} style={menuItem}>Export Full Video</button>
+                    </>
+                  ) : (
+                    videoFormats.map((fmt) => (
+                      <div key={fmt.mime}>
+                        <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
+                        <div style={{ padding: '4px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
+                        {[5, 10, 30].map((s) => (
+                          <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItem}>Clip — {s}s</button>
+                        ))}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>

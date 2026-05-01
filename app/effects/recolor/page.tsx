@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import EffectLayout from '@/components/EffectLayout';
 import { renderRecolor, RecolorParams } from '@/lib/effects/recolor';
+import { exportVideoFull } from '@/lib/export';
 
 const GRADIENT_PRESETS: string[][] = [
   ['#000000', '#ff2200', '#ffaa00', '#ffffff'],
@@ -61,6 +62,8 @@ export default function RecolorPage() {
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [sourceMode, setSourceMode] = useState<'image' | 'video'>('image');
   const [hasVideo, setHasVideo] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [customColors, setCustomColors] = useState<string[]>([...DEFAULT_CUSTOM]);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const colorInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -149,6 +152,34 @@ export default function RecolorPage() {
     e.target.value = '';
   };
 
+  const handleExportFull = async () => {
+    if (!videoRef.current || !canvasRef.current || !tempCanvasRef.current || isExporting) return;
+    cancelAnimationFrame(videoRafRef.current);
+    setIsExporting(true);
+    setExportProgress(0);
+    const tc = tempCanvasRef.current;
+    const tCtx = tc.getContext('2d')!;
+    await exportVideoFull(
+      videoRef.current,
+      canvasRef.current,
+      (vid) => {
+        tCtx.drawImage(vid, 0, 0);
+        const frame = renderRecolor(
+          tCtx.getImageData(0, 0, tc.width, tc.height),
+          paramsRef.current,
+          vid.currentTime * 1000,
+        );
+        canvasRef.current!.getContext('2d')!.putImageData(frame, 0, 0);
+      },
+      'recolor',
+      setExportProgress,
+    );
+    setIsExporting(false);
+    videoRef.current.loop = true;
+    videoRef.current.play().catch(() => {});
+    videoRafRef.current = requestAnimationFrame(videoTick);
+  };
+
   const set = (patch: Partial<RecolorParams>) => setParams((p) => ({ ...p, ...patch }));
 
   const applyPreset = (idx: number) => {
@@ -198,7 +229,7 @@ export default function RecolorPage() {
         <div style={{ ...sect, borderTop: 'none', paddingTop: 0 }}>
           <span style={sectLabel}>Source</span>
         </div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: sourceMode === 'video' && hasVideo ? 6 : 10 }}>
           <button onClick={() => setSourceMode('image')} style={btn(sourceMode === 'image')}>
             Image
           </button>
@@ -209,6 +240,22 @@ export default function RecolorPage() {
             {sourceMode === 'video' && hasVideo ? 'Video ✓' : 'Load Video'}
           </button>
         </div>
+        {sourceMode === 'video' && hasVideo && (
+          <button
+            onClick={handleExportFull}
+            disabled={isExporting}
+            style={{
+              width: '100%', padding: '7px', fontSize: 11, borderRadius: 0, marginBottom: 10,
+              fontFamily: '"Courier New", monospace', fontWeight: 600, letterSpacing: '0.08em',
+              border: `1px solid ${isExporting ? 'rgba(172,199,253,0.25)' : 'rgba(172,199,253,0.25)'}`,
+              background: isExporting ? '#0a1a12' : '#152028',
+              color: isExporting ? '#2ae500' : '#acc7fd',
+              cursor: isExporting ? 'wait' : 'pointer',
+            }}
+          >
+            {isExporting ? `↓ Exporting ${Math.round(exportProgress * 100)}%` : 'Export Full Video'}
+          </button>
+        )}
 
         {/* Mode */}
         <div style={sect}>

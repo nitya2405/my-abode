@@ -19,7 +19,8 @@
     "react-dom": "^18",
     "styled-components": "^6.4.1",
     "tailwind-merge": "^2.2.1",
-    "three": "^0.184.0"
+    "three": "^0.184.0",
+    "webm-muxer": "^5.1.4"
   },
   "devDependencies": {
     "@types/node": "^20",

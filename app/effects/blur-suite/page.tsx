@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { renderBlurSuite, BlurSuiteParams } from '@/lib/effects/blur-suite';
 import { saveCanvasToGallery } from '@/lib/gallery';
-import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
+import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat } from '@/lib/export';
 import { C } from '@/lib/effects-data';
 import { useIsMobile } from '@/lib/useIsMobile';
 
@@ -28,6 +28,8 @@ export default function BlurSuitePage() {
   const [params, setParams]         = useState<BlurSuiteParams>(DEFAULT_PARAMS);
   const [showExport, setShowExport] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [videoFormats, setVideoFormats]   = useState<VideoFormat[]>([]);
 
@@ -127,6 +129,30 @@ export default function BlurSuitePage() {
     setShowExport(false);
   };
 
+  const handleExportFull = async () => {
+    if (!videoRef.current || !canvasRef.current || !tempCanvasRef.current || isExporting) return;
+    cancelAnimationFrame(videoRafRef.current);
+    setIsExporting(true);
+    setExportProgress(0);
+    setShowExport(false);
+    const tc = tempCanvasRef.current;
+    const tCtx = tc.getContext('2d')!;
+    await exportVideoFull(
+      videoRef.current,
+      canvasRef.current,
+      (vid) => {
+        tCtx.drawImage(vid, 0, 0);
+        renderBlurSuite(canvasRef.current!, tCtx.getImageData(0, 0, tc.width, tc.height), paramsRef.current);
+      },
+      'blur-suite',
+      setExportProgress,
+    );
+    setIsExporting(false);
+    videoRef.current.loop = true;
+    videoRef.current.play().catch(() => {});
+    videoRafRef.current = requestAnimationFrame(tick);
+  };
+
   const handleSave = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -194,16 +220,16 @@ export default function BlurSuitePage() {
 
             <div style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasContent && !isRecording && setShowExport((v) => !v)}
+                onClick={() => hasContent && !isRecording && !isExporting && setShowExport((v) => !v)}
                 style={{
                   ...btnStyle, width: '100%',
-                  background: isRecording ? '#3b0a0a' : C.surfaceHigh,
-                  color: isRecording ? '#ff6b6b' : hasContent ? C.primary : C.textMuted,
-                  border: isRecording ? '1px solid #ff4a4a40' : `1px solid ${C.border}`,
-                  cursor: isRecording ? 'wait' : hasContent ? 'pointer' : 'not-allowed',
+                  background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
+                  color: isExporting ? C.green : isRecording ? '#ff6b6b' : hasContent ? C.primary : C.textMuted,
+                  border: `1px solid ${isRecording ? '#ff4a4a40' : C.border}`,
+                  cursor: isExporting || isRecording ? 'wait' : hasContent ? 'pointer' : 'not-allowed',
                 }}
               >
-                {isRecording ? '● REC' : 'Export ▾'}
+                {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
 
               {showExport && (
@@ -212,15 +238,23 @@ export default function BlurSuitePage() {
                   {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={mItem}>{f}</button>
                   ))}
-                  {videoFormats.map((fmt) => (
-                    <div key={fmt.mime}>
+                  {sourceMode === 'video' ? (
+                    <>
                       <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                      <div style={sHdr}>Video — {fmt.label}</div>
-                      {[5, 10, 30].map((s) => (
-                        <button key={s} onClick={() => exportVideo(fmt, s)} style={mItem}>Clip — {s}s</button>
-                      ))}
-                    </div>
-                  ))}
+                      <div style={sHdr}>Full Video</div>
+                      <button onClick={handleExportFull} style={mItem}>Export Full Video</button>
+                    </>
+                  ) : (
+                    videoFormats.map((fmt) => (
+                      <div key={fmt.mime}>
+                        <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
+                        <div style={sHdr}>Video — {fmt.label}</div>
+                        {[5, 10, 30].map((s) => (
+                          <button key={s} onClick={() => exportVideo(fmt, s)} style={mItem}>Clip — {s}s</button>
+                        ))}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { renderGlassify, GlassifyParams } from '@/lib/effects/glassify';
 import { saveCanvasToGallery } from '@/lib/gallery';
-import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
+import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat } from '@/lib/export';
 import { C, effects } from '@/lib/effects-data';
 
 const EFFECTS = ['None', 'Radial', 'Glitch', 'Stripe', 'Organic', 'Ripple'];
@@ -40,6 +40,8 @@ export default function GlassifyPage() {
   const [params, setParams] = useState<GlassifyParams>(DEFAULT_PARAMS);
   const [showExport, setShowExport] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [videoPaused, setVideoPaused] = useState(false);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -139,6 +141,34 @@ export default function GlassifyPage() {
     }
   };
 
+  const handleExportFull = async () => {
+    if (!videoRef.current || !canvasRef.current || isExporting) return;
+    cancelAnimationFrame(videoRafRef.current);
+    setIsExporting(true);
+    setExportProgress(0);
+    setShowExport(false);
+    await exportVideoFull(
+      videoRef.current,
+      canvasRef.current,
+      (vid) => {
+        const w = vid.videoWidth, h = vid.videoHeight;
+        if (!videoCanvasRef.current) videoCanvasRef.current = document.createElement('canvas');
+        const vc = videoCanvasRef.current;
+        if (vc.width !== w || vc.height !== h) { vc.width = w; vc.height = h; }
+        const vCtx = vc.getContext('2d')!;
+        vCtx.drawImage(vid, 0, 0, w, h);
+        const result = renderGlassify(vCtx.getImageData(0, 0, w, h), paramsRef.current, vid.currentTime * 1000);
+        const c = canvasRef.current!;
+        c.width = result.width; c.height = result.height;
+        c.getContext('2d')!.putImageData(result, 0, 0);
+      },
+      'glassify',
+      setExportProgress,
+    );
+    setIsExporting(false);
+    setVideoPaused(false);
+  };
+
   const exportImage = (fmt: 'png' | 'jpeg' | 'webp') => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -206,16 +236,16 @@ export default function GlassifyPage() {
 
             <div style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasMedia && !isRecording && setShowExport((v) => !v)}
+                onClick={() => hasMedia && !isRecording && !isExporting && setShowExport((v) => !v)}
                 style={{
                   ...btnStyle, width: '100%',
-                  background: isRecording ? '#3b0a0a' : C.surfaceHigh,
-                  color: isRecording ? '#ff6b6b' : hasMedia ? C.primary : C.textMuted,
-                  border: isRecording ? '1px solid #ff4a4a40' : `1px solid ${C.border}`,
-                  cursor: isRecording ? 'wait' : hasMedia ? 'pointer' : 'not-allowed',
+                  background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
+                  color: isExporting ? C.green : isRecording ? '#ff6b6b' : hasMedia ? C.primary : C.textMuted,
+                  border: `1px solid ${isRecording ? '#ff4a4a40' : C.border}`,
+                  cursor: isExporting || isRecording ? 'wait' : hasMedia ? 'pointer' : 'not-allowed',
                 }}
               >
-                {isRecording ? '● REC' : 'Export ▾'}
+                {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
 
               {showExport && (
@@ -224,15 +254,23 @@ export default function GlassifyPage() {
                   {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
                     <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={mItem}>{f}</button>
                   ))}
-                  {videoFormats.map((fmt) => (
-                    <div key={fmt.mime}>
+                  {mediaType === 'video' ? (
+                    <>
                       <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                      <div style={sHdr}>Video — {fmt.label}</div>
-                      {[5, 10, 30].map((s) => (
-                        <button key={s} onClick={() => exportVideo(fmt, s)} style={mItem}>Clip — {s}s</button>
-                      ))}
-                    </div>
-                  ))}
+                      <div style={sHdr}>Full Video</div>
+                      <button onClick={handleExportFull} style={mItem}>Export Full Video</button>
+                    </>
+                  ) : (
+                    videoFormats.map((fmt) => (
+                      <div key={fmt.mime}>
+                        <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
+                        <div style={sHdr}>Video — {fmt.label}</div>
+                        {[5, 10, 30].map((s) => (
+                          <button key={s} onClick={() => exportVideo(fmt, s)} style={mItem}>Clip — {s}s</button>
+                        ))}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
