@@ -54,8 +54,15 @@ export function startCanvasRecording(
       const blob = new Blob(chunks, { type: fmt.mime.split(';')[0] });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `${filename}.${fmt.ext}`; a.click();
-      URL.revokeObjectURL(url);
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${filename}.${fmt.ext}`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
     };
     onStart();
     recorder.start(100);
@@ -104,12 +111,13 @@ export async function exportVideoFull(
     typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
 
   if (hasWebCodecs) {
+    const FPS = 60;
     const vpConfig: VideoEncoderConfig = {
       codec: 'vp09.00.51.08', // VP9, profile 0, level 5.1, 8-bit
       width: w,
       height: h,
       bitrate: 25_000_000,
-      framerate: 30,
+      framerate: FPS,
     };
 
     let useVP9 = false;
@@ -125,7 +133,8 @@ export async function exportVideoFull(
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({
         target,
-        video: { codec: 'V_VP9', width: w, height: h, frameRate: 30 },
+        video: { codec: 'V_VP9', width: w, height: h, frameRate: FPS },
+        firstTimestampBehavior: 'offset',
       });
 
       const encoder = new VideoEncoder({
@@ -136,10 +145,9 @@ export async function exportVideoFull(
 
       let frameIndex = 0;
 
-      const encodeFrame = () => {
+      const encodeFrame = (timestampUs: number) => {
         renderFrame(video);
-        const ts = Math.round(video.currentTime * 1_000_000); // microseconds
-        const vf = new VideoFrame(canvas, { timestamp: ts });
+        const vf = new VideoFrame(canvas, { timestamp: timestampUs });
         encoder.encode(vf, { keyFrame: frameIndex % 60 === 0 });
         vf.close();
         frameIndex++;
@@ -147,37 +155,29 @@ export async function exportVideoFull(
       };
 
       const vid = video; // stable reference, avoids TS narrowing inside Promise
-      const hasRVFC = typeof (vid as any).requestVideoFrameCallback === 'function';
 
       await new Promise<void>((resolve, reject) => {
-        if (hasRVFC) {
-          // Fast path: collect frames during real-time playback (1x speed)
-          const onRVFC = (_: DOMHighResTimeStamp, meta: { mediaTime: number }) => {
-            encodeFrame();
-            if (meta.mediaTime < duration - 1 / 60) {
-              (vid as any).requestVideoFrameCallback(onRVFC);
-            } else {
-              resolve();
-            }
-          };
-          vid.addEventListener('ended', () => resolve(), { once: true });
-          vid.currentTime = 0;
+        const total = Math.ceil(duration * FPS);
+        let i = 0;
+
+        const next = () => {
+          if (i >= total) {
+            resolve();
+            return;
+          }
+          const time = i / FPS;
+          vid.currentTime = Math.min(time, duration - 0.001);
+          
+          // Wait for the seek to complete before capturing the frame
           vid.addEventListener('seeked', () => {
-            (vid as any).requestVideoFrameCallback(onRVFC);
-            vid.play().catch(reject);
+            const ts = Math.round(time * 1_000_000);
+            encodeFrame(ts);
+            i++;
+            next();
           }, { once: true });
-        } else {
-          // Slow path: seek frame by frame (Firefox)
-          const FPS = 30;
-          const total = Math.ceil(duration * FPS);
-          let i = 0;
-          const next = () => {
-            if (i >= total) { resolve(); return; }
-            vid.currentTime = Math.min(i / FPS, duration - 0.001);
-            vid.addEventListener('seeked', () => { encodeFrame(); i++; next(); }, { once: true });
-          };
-          next();
-        }
+        };
+        
+        next();
       });
 
       video.pause();
@@ -188,8 +188,17 @@ export async function exportVideoFull(
       const blob = new Blob([target.buffer], { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `${filename}.webm`; a.click();
-      URL.revokeObjectURL(url);
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${filename}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Delay revocation to ensure the browser has started the download
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
       return;
     }
   }
@@ -215,8 +224,15 @@ export async function exportVideoFull(
         const blob = new Blob(chunks, { type: fmt.mime.split(';')[0] });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `${filename}.${fmt.ext}`; a.click();
-        URL.revokeObjectURL(url);
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `${filename}.${fmt.ext}`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 200);
         resolve();
       };
       onProgress(0);
