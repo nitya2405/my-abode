@@ -6,6 +6,7 @@ import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 import { C } from '@/lib/effects-data';
 import ExportDropdown from '@/components/ExportDropdown';
+import VideoControls from '@/components/VideoControls';
 
 interface EffectLayoutProps {
   effectName: string;
@@ -16,11 +17,11 @@ interface EffectLayoutProps {
   animated?: boolean;
   hasImage?: boolean;
   children: React.ReactNode;
-  // Video-source export props (used by Recolor)
   isVideoSource?: boolean;
   onFullVideoExport?: (fmt: 'webm' | 'mp4') => void;
   isExporting?: boolean;
   exportProgress?: number;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const Shell = styled.div`
@@ -124,6 +125,7 @@ export default function EffectLayout({
   onFullVideoExport,
   isExporting = false,
   exportProgress = 0,
+  videoRef,
   children,
 }: EffectLayoutProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -251,6 +253,7 @@ export default function EffectLayout({
           </div>
         )}
         <Canvas ref={canvasRef} $visible={hasImage} />
+        {isVideoSource && videoRef && <VideoControls videoRef={videoRef} />}
       </Stage>
 
       {showExport && (

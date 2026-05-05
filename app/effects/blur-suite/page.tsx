@@ -7,6 +7,7 @@ import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat 
 import { C } from '@/lib/effects-data';
 import { useIsMobile } from '@/lib/useIsMobile';
 import ExportDropdown from '@/components/ExportDropdown';
+import VideoControls from '@/components/VideoControls';
 
 const MODES = ['Linear', 'Radial', 'Zoom', 'Wave', 'TB', 'LR'];
 
@@ -293,6 +294,7 @@ export default function BlurSuitePage() {
           </div>
         )}
         <canvas ref={canvasRef} style={{ maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', display: hasContent ? 'block' : 'none' }} />
+        {sourceMode === 'video' && hasVideo && <VideoControls videoRef={videoRef} />}
       </div>
 
       {showExport && (

@@ -8,6 +8,7 @@ import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat 
 import { C, effects } from '@/lib/effects-data';
 import { useIsMobile } from '@/lib/useIsMobile';
 import ExportDropdown from '@/components/ExportDropdown';
+import VideoControls from '@/components/VideoControls';
 
 const MAX_DIM = 1200;
 
@@ -409,6 +410,7 @@ export default function ASCIIKitPage() {
         onToggle={toggleVideo}
         canvasRef={canvasRef}
         isMobile={isMobile}
+        videoRef={videoRef}
       />
 
       {showExport && (
@@ -429,7 +431,7 @@ export default function ASCIIKitPage() {
   );
 }
 
-function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef, isMobile }: {
+function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef, isMobile, videoRef }: {
   hasMedia: boolean;
   mediaType: 'image' | 'video' | null;
   videoPaused: boolean;
@@ -437,6 +439,7 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
   onToggle: () => void;
   canvasRef: React.RefObject<HTMLCanvasElement>;
   isMobile: boolean;
+  videoRef: React.RefObject<HTMLVideoElement>;
 }) {
   const [hovered, setHovered] = useState(false);
   const isVideo = mediaType === 'video' && hasMedia;
@@ -468,23 +471,7 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
 
       <canvas ref={canvasRef} style={{ maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', display: hasMedia ? 'block' : 'none', cursor: 'default' }} />
 
-      {isVideo && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          pointerEvents: 'none',
-          opacity: hovered || videoPaused ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-        }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, color: '#fff', transition: 'transform 0.15s, background 0.15s',
-            transform: hovered ? 'scale(1.08)' : 'scale(1)',
-          }}>
-            {videoPaused ? '▶' : '⏸'}
-          </div>
-        </div>
-      )}
+      {isVideo && <VideoControls videoRef={videoRef} onToggle={onToggle} />}
     </div>
   );
 }

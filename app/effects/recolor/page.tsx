@@ -223,6 +223,7 @@ export default function RecolorPage() {
         onFullVideoExport={handleExportFull}
         isExporting={isExporting}
         exportProgress={exportProgress}
+        videoRef={videoRef}
       >
         <div style={{ height: 10 }} />
 
