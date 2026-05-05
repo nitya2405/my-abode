@@ -127,9 +127,11 @@ export default function EffectLayout({
   children,
 }: EffectLayoutProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exportBtnRef = useRef<HTMLDivElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const [videoFormats, setVideoFormats] = useState<VideoFormat[]>([]);
   useEffect(() => { setVideoFormats(detectVideoFormats()); }, []);
 
@@ -183,7 +185,7 @@ export default function EffectLayout({
   const accept = onVideoLoad ? 'image/*,video/*' : 'image/*';
 
   return (
-    <Shell onClick={() => showExport && setShowExport(false)}>
+    <Shell onClick={() => showExport && setShowExport(false)} style={{ position: 'relative' }}>
       <Panel>
         <PanelTop>
           <EffectName>{effectName}</EffectName>
@@ -206,9 +208,16 @@ export default function EffectLayout({
               {savedFeedback ? '✓ Saved' : 'Save'}
             </button>
 
-            <div style={{ position: 'relative', flex: 1 }}>
+            <div ref={exportBtnRef} style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasImage && !isRecording && !isExporting && setShowExport((v) => !v)}
+                onClick={() => {
+                  if (!hasImage || isRecording || isExporting) return;
+                  if (exportBtnRef.current) {
+                    const rect = exportBtnRef.current.getBoundingClientRect();
+                    setDropdownPos({ top: rect.bottom + 2, right: window.innerWidth - rect.right });
+                  }
+                  setShowExport((v) => !v);
+                }}
                 style={{
                   ...btnStyle, width: '100%',
                   background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
@@ -219,21 +228,6 @@ export default function EffectLayout({
               >
                 {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
-
-              {showExport && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 2, zIndex: 200 }}>
-                  <ExportDropdown
-                    onImageExport={exportImage}
-                    onClipExport={isVideoSource ? undefined : exportVideo}
-                    videoFormats={isVideoSource ? [] : videoFormats}
-                    isRecording={isRecording}
-                    onFullExport={isVideoSource ? onFullVideoExport : undefined}
-                    isVideoSource={isVideoSource}
-                    isExporting={isExporting}
-                    exportProgress={exportProgress}
-                  />
-                </div>
-              )}
             </div>
           </div>
         </PanelTop>
@@ -258,6 +252,24 @@ export default function EffectLayout({
         )}
         <Canvas ref={canvasRef} $visible={hasImage} />
       </Stage>
+
+      {showExport && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}
+        >
+          <ExportDropdown
+            onImageExport={exportImage}
+            onClipExport={isVideoSource ? undefined : exportVideo}
+            videoFormats={isVideoSource ? [] : videoFormats}
+            isRecording={isRecording}
+            onFullExport={isVideoSource ? onFullVideoExport : undefined}
+            isVideoSource={isVideoSource}
+            isExporting={isExporting}
+            exportProgress={exportProgress}
+          />
+        </div>
+      )}
     </Shell>
   );
 }

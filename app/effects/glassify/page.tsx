@@ -39,7 +39,9 @@ export default function GlassifyPage() {
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [params, setParams] = useState<GlassifyParams>(DEFAULT_PARAMS);
+  const exportBtnRef = useRef<HTMLDivElement>(null);
   const [showExport, setShowExport] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const [isRecording, setIsRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -236,9 +238,16 @@ export default function GlassifyPage() {
               {savedFeedback ? '✓ Saved' : 'Save'}
             </button>
 
-            <div style={{ position: 'relative', flex: 1 }}>
+            <div ref={exportBtnRef} style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasMedia && !isRecording && !isExporting && setShowExport((v) => !v)}
+                onClick={() => {
+                  if (!hasMedia || isRecording || isExporting) return;
+                  if (exportBtnRef.current) {
+                    const rect = exportBtnRef.current.getBoundingClientRect();
+                    setDropdownPos({ top: rect.bottom + 2, right: window.innerWidth - rect.right });
+                  }
+                  setShowExport((v) => !v);
+                }}
                 style={{
                   ...btnStyle, width: '100%',
                   background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
@@ -249,21 +258,6 @@ export default function GlassifyPage() {
               >
                 {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
-
-              {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
-                  <ExportDropdown
-                    onImageExport={exportImage}
-                    onClipExport={mediaType === 'video' ? undefined : exportVideo}
-                    videoFormats={mediaType === 'video' ? [] : videoFormats}
-                    isRecording={isRecording}
-                    onFullExport={mediaType === 'video' ? handleExportFull : undefined}
-                    isVideoSource={mediaType === 'video'}
-                    isExporting={isExporting}
-                    exportProgress={exportProgress}
-                  />
-                </div>
-              )}
             </div>
           </div>
           {videoError && (
@@ -337,6 +331,21 @@ export default function GlassifyPage() {
         canvasRef={canvasRef}
         effectName="GLASSIFY"
       />
+
+      {showExport && (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}>
+          <ExportDropdown
+            onImageExport={exportImage}
+            onClipExport={mediaType === 'video' ? undefined : exportVideo}
+            videoFormats={mediaType === 'video' ? [] : videoFormats}
+            isRecording={isRecording}
+            onFullExport={mediaType === 'video' ? handleExportFull : undefined}
+            isVideoSource={mediaType === 'video'}
+            isExporting={isExporting}
+            exportProgress={exportProgress}
+          />
+        </div>
+      )}
     </div>
   );
 }

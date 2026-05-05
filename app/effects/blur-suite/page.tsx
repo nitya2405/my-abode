@@ -27,7 +27,9 @@ export default function BlurSuitePage() {
   const [sourceMode, setSourceMode] = useState<'image' | 'video'>('image');
   const [hasVideo, setHasVideo]     = useState(false);
   const [params, setParams]         = useState<BlurSuiteParams>(DEFAULT_PARAMS);
+  const exportBtnRef = useRef<HTMLDivElement>(null);
   const [showExport, setShowExport] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const [isRecording, setIsRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -220,9 +222,16 @@ export default function BlurSuitePage() {
               {savedFeedback ? '✓ Saved' : 'Save'}
             </button>
 
-            <div style={{ position: 'relative', flex: 1 }}>
+            <div ref={exportBtnRef} style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasContent && !isRecording && !isExporting && setShowExport((v) => !v)}
+                onClick={() => {
+                  if (!hasContent || isRecording || isExporting) return;
+                  if (exportBtnRef.current) {
+                    const rect = exportBtnRef.current.getBoundingClientRect();
+                    setDropdownPos({ top: rect.bottom + 2, right: window.innerWidth - rect.right });
+                  }
+                  setShowExport((v) => !v);
+                }}
                 style={{
                   ...btnStyle, width: '100%',
                   background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
@@ -233,21 +242,6 @@ export default function BlurSuitePage() {
               >
                 {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
-
-              {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
-                  <ExportDropdown
-                    onImageExport={exportImage}
-                    onClipExport={sourceMode === 'video' ? undefined : exportVideo}
-                    videoFormats={sourceMode === 'video' ? [] : videoFormats}
-                    isRecording={isRecording}
-                    onFullExport={sourceMode === 'video' ? handleExportFull : undefined}
-                    isVideoSource={sourceMode === 'video'}
-                    isExporting={isExporting}
-                    exportProgress={exportProgress}
-                  />
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -300,6 +294,21 @@ export default function BlurSuitePage() {
         )}
         <canvas ref={canvasRef} style={{ maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', display: hasContent ? 'block' : 'none' }} />
       </div>
+
+      {showExport && (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}>
+          <ExportDropdown
+            onImageExport={exportImage}
+            onClipExport={sourceMode === 'video' ? undefined : exportVideo}
+            videoFormats={sourceMode === 'video' ? [] : videoFormats}
+            isRecording={isRecording}
+            onFullExport={sourceMode === 'video' ? handleExportFull : undefined}
+            isVideoSource={sourceMode === 'video'}
+            isExporting={isExporting}
+            exportProgress={exportProgress}
+          />
+        </div>
+      )}
     </div>
   );
 }
