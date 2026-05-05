@@ -55,7 +55,6 @@ export default function RecolorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
   const videoRafRef = useRef<number>(0);
   const tempCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -128,9 +127,7 @@ export default function RecolorPage() {
     return () => cancelAnimationFrame(videoRafRef.current);
   }, [sourceMode, hasVideo, videoTick]);
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleVideoLoad = (file: File) => {
     const video = videoRef.current;
     if (!video) return;
     if (video.src) URL.revokeObjectURL(video.src);
@@ -149,7 +146,6 @@ export default function RecolorPage() {
       setHasVideo(true);
       setSourceMode('video');
     };
-    e.target.value = '';
   };
 
   const handleExportFull = async () => {
@@ -213,49 +209,21 @@ export default function RecolorPage() {
   return (
     <>
       <video ref={videoRef} style={{ display: 'none' }} playsInline />
-      <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} style={{ display: 'none' }} />
 
       <EffectLayout
         effectName="RECOLOR"
         description="Remap image colors — hue cycle or gradient map luminance to a custom palette."
         canvasRef={canvasRef}
         onImageLoad={(d) => { setImageData(d); setSourceMode('image'); }}
+        onVideoLoad={handleVideoLoad}
         animated
         hasImage={hasContent}
+        isVideoSource={sourceMode === 'video' && hasVideo}
+        onFullVideoExport={handleExportFull}
+        isExporting={isExporting}
+        exportProgress={exportProgress}
       >
         <div style={{ height: 10 }} />
-
-        {/* Source */}
-        <div style={{ ...sect, borderTop: 'none', paddingTop: 0 }}>
-          <span style={sectLabel}>Source</span>
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: sourceMode === 'video' && hasVideo ? 6 : 10 }}>
-          <button onClick={() => setSourceMode('image')} style={btn(sourceMode === 'image')}>
-            Image
-          </button>
-          <button
-            onClick={() => { setSourceMode('video'); videoInputRef.current?.click(); }}
-            style={btn(sourceMode === 'video')}
-          >
-            {sourceMode === 'video' && hasVideo ? 'Video ✓' : 'Load Video'}
-          </button>
-        </div>
-        {sourceMode === 'video' && hasVideo && (
-          <button
-            onClick={handleExportFull}
-            disabled={isExporting}
-            style={{
-              width: '100%', padding: '7px', fontSize: 11, borderRadius: 0, marginBottom: 10,
-              fontFamily: '"Courier New", monospace', fontWeight: 600, letterSpacing: '0.08em',
-              border: `1px solid ${isExporting ? 'rgba(172,199,253,0.25)' : 'rgba(172,199,253,0.25)'}`,
-              background: isExporting ? '#0a1a12' : '#152028',
-              color: isExporting ? '#2ae500' : '#acc7fd',
-              cursor: isExporting ? 'wait' : 'pointer',
-            }}
-          >
-            {isExporting ? `↓ Exporting ${Math.round(exportProgress * 100)}%` : 'Export Full Video'}
-          </button>
-        )}
 
         {/* Mode */}
         <div style={sect}>

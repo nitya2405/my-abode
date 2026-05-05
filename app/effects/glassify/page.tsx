@@ -5,6 +5,7 @@ import { renderGlassify, GlassifyParams } from '@/lib/effects/glassify';
 import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat } from '@/lib/export';
 import { C, effects } from '@/lib/effects-data';
+import ExportDropdown from '@/components/ExportDropdown';
 
 const EFFECTS = ['None', 'Radial', 'Glitch', 'Stripe', 'Organic', 'Ripple'];
 
@@ -174,7 +175,7 @@ export default function GlassifyPage() {
     if (!canvas) return;
     const mime = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' }[fmt];
     const a = document.createElement('a');
-    a.href = canvas.toDataURL(mime, 0.92);
+    a.href = canvas.toDataURL(mime, 1.0);
     a.download = `glassify.${fmt}`;
     a.click();
     setShowExport(false);
@@ -249,28 +250,17 @@ export default function GlassifyPage() {
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#041016', border: `1px solid ${C.border}`, borderRadius: 0, overflow: 'hidden', zIndex: 200 }}>
-                  <div style={sHdr}>Image frame</div>
-                  {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
-                    <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={mItem}>{f}</button>
-                  ))}
-                  {mediaType === 'video' ? (
-                    <>
-                      <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                      <div style={sHdr}>Full Video</div>
-                      <button onClick={handleExportFull} style={mItem}>Export Full Video</button>
-                    </>
-                  ) : (
-                    videoFormats.map((fmt) => (
-                      <div key={fmt.mime}>
-                        <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                        <div style={sHdr}>Video — {fmt.label}</div>
-                        {[5, 10, 30].map((s) => (
-                          <button key={s} onClick={() => exportVideo(fmt, s)} style={mItem}>Clip — {s}s</button>
-                        ))}
-                      </div>
-                    ))
-                  )}
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
+                  <ExportDropdown
+                    onImageExport={exportImage}
+                    onClipExport={mediaType === 'video' ? undefined : exportVideo}
+                    videoFormats={mediaType === 'video' ? [] : videoFormats}
+                    isRecording={isRecording}
+                    onFullExport={mediaType === 'video' ? handleExportFull : undefined}
+                    isVideoSource={mediaType === 'video'}
+                    isExporting={isExporting}
+                    exportProgress={exportProgress}
+                  />
                 </div>
               )}
             </div>

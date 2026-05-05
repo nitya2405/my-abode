@@ -6,6 +6,7 @@ import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat } from '@/lib/export';
 import { C } from '@/lib/effects-data';
 import { useIsMobile } from '@/lib/useIsMobile';
+import ExportDropdown from '@/components/ExportDropdown';
 
 const MODES = ['Linear', 'Radial', 'Zoom', 'Wave', 'TB', 'LR'];
 
@@ -116,7 +117,7 @@ export default function BlurSuitePage() {
     if (!canvas) return;
     const mime = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' }[fmt];
     const a = document.createElement('a');
-    a.href = canvas.toDataURL(mime, 0.92);
+    a.href = canvas.toDataURL(mime, 1.0);
     a.download = `blur-suite.${fmt}`;
     a.click();
     setShowExport(false);
@@ -233,28 +234,17 @@ export default function BlurSuitePage() {
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#041016', border: `1px solid ${C.border}`, overflow: 'hidden', zIndex: 200 }}>
-                  <div style={sHdr}>Image frame</div>
-                  {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
-                    <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={mItem}>{f}</button>
-                  ))}
-                  {sourceMode === 'video' ? (
-                    <>
-                      <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                      <div style={sHdr}>Full Video</div>
-                      <button onClick={handleExportFull} style={mItem}>Export Full Video</button>
-                    </>
-                  ) : (
-                    videoFormats.map((fmt) => (
-                      <div key={fmt.mime}>
-                        <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                        <div style={sHdr}>Video — {fmt.label}</div>
-                        {[5, 10, 30].map((s) => (
-                          <button key={s} onClick={() => exportVideo(fmt, s)} style={mItem}>Clip — {s}s</button>
-                        ))}
-                      </div>
-                    ))
-                  )}
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
+                  <ExportDropdown
+                    onImageExport={exportImage}
+                    onClipExport={sourceMode === 'video' ? undefined : exportVideo}
+                    videoFormats={sourceMode === 'video' ? [] : videoFormats}
+                    isRecording={isRecording}
+                    onFullExport={sourceMode === 'video' ? handleExportFull : undefined}
+                    isVideoSource={sourceMode === 'video'}
+                    isExporting={isExporting}
+                    exportProgress={exportProgress}
+                  />
                 </div>
               )}
             </div>

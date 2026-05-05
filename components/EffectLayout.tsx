@@ -5,15 +5,22 @@ import styled from 'styled-components';
 import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
 import { C } from '@/lib/effects-data';
+import ExportDropdown from '@/components/ExportDropdown';
 
 interface EffectLayoutProps {
   effectName: string;
   description?: string;
   canvasRef: React.RefObject<HTMLCanvasElement>;
   onImageLoad: (imageData: ImageData) => void;
+  onVideoLoad?: (file: File) => void;
   animated?: boolean;
   hasImage?: boolean;
   children: React.ReactNode;
+  // Video-source export props (used by Recolor)
+  isVideoSource?: boolean;
+  onFullVideoExport?: () => void;
+  isExporting?: boolean;
+  exportProgress?: number;
 }
 
 const Shell = styled.div`
@@ -99,20 +106,11 @@ const Canvas = styled.canvas<{ $visible: boolean }>`
   display: ${(p) => (p.$visible ? 'block' : 'none')};
 `;
 
-const sHdr: React.CSSProperties = {
-  padding: '6px 12px 4px', fontSize: 9, color: C.textMuted,
-  letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: 'monospace',
-};
 const btnStyle: React.CSSProperties = {
   flex: 1, padding: '7px 10px', background: C.surfaceHigh, color: C.primary,
   border: `1px solid ${C.border}`, borderRadius: 0, cursor: 'pointer',
   fontSize: 11, fontFamily: '"Courier New", monospace', fontWeight: 600,
   letterSpacing: '0.08em',
-};
-const menuItemStyle: React.CSSProperties = {
-  display: 'block', width: '100%', padding: '8px 14px', background: 'transparent',
-  color: C.primary, border: 'none', cursor: 'pointer', textAlign: 'left',
-  fontSize: 11, fontFamily: '"Courier New", monospace', letterSpacing: '0.05em',
 };
 
 export default function EffectLayout({
@@ -120,7 +118,12 @@ export default function EffectLayout({
   description,
   canvasRef,
   onImageLoad,
+  onVideoLoad,
   hasImage = false,
+  isVideoSource = false,
+  onFullVideoExport,
+  isExporting = false,
+  exportProgress = 0,
   children,
 }: EffectLayoutProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,6 +136,13 @@ export default function EffectLayout({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
+
+    if (file.type.startsWith('video/') && onVideoLoad) {
+      onVideoLoad(file);
+      return;
+    }
+
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
@@ -143,7 +153,6 @@ export default function EffectLayout({
       URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(file);
-    e.target.value = '';
   };
 
   const exportImage = (fmt: 'png' | 'jpeg' | 'webp') => {
@@ -151,7 +160,7 @@ export default function EffectLayout({
     if (!canvas || !hasImage) return;
     const mime = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' }[fmt];
     const a = document.createElement('a');
-    a.href = canvas.toDataURL(mime, 0.92);
+    a.href = canvas.toDataURL(mime, 1.0); // maximum quality
     a.download = `${effectName.toLowerCase()}.${fmt}`;
     a.click();
     setShowExport(false);
@@ -171,6 +180,8 @@ export default function EffectLayout({
     if (ok) { setSavedFeedback(true); setTimeout(() => setSavedFeedback(false), 1800); }
   };
 
+  const accept = onVideoLoad ? 'image/*,video/*' : 'image/*';
+
   return (
     <Shell onClick={() => showExport && setShowExport(false)}>
       <Panel>
@@ -178,7 +189,7 @@ export default function EffectLayout({
           <EffectName>{effectName}</EffectName>
           {description && <Description>{description}</Description>}
 
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+          <input ref={fileInputRef} type="file" accept={accept} onChange={handleFileChange} style={{ display: 'none' }} />
 
           <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => fileInputRef.current?.click()} style={btnStyle}>
@@ -197,33 +208,30 @@ export default function EffectLayout({
 
             <div style={{ position: 'relative', flex: 1 }}>
               <button
-                onClick={() => hasImage && !isRecording && setShowExport((v) => !v)}
+                onClick={() => hasImage && !isRecording && !isExporting && setShowExport((v) => !v)}
                 style={{
                   ...btnStyle, width: '100%',
-                  background: isRecording ? '#3b0a0a' : C.surfaceHigh,
-                  color: isRecording ? '#ff6b6b' : hasImage ? C.primary : C.textMuted,
-                  border: isRecording ? '1px solid #ff4a4a40' : `1px solid ${C.border}`,
-                  cursor: isRecording ? 'wait' : hasImage ? 'pointer' : 'not-allowed',
+                  background: isExporting ? '#0a1a12' : isRecording ? '#3b0a0a' : C.surfaceHigh,
+                  color: isExporting ? C.green : isRecording ? '#ff6b6b' : hasImage ? C.primary : C.textMuted,
+                  border: `1px solid ${isRecording ? '#ff4a4a40' : C.border}`,
+                  cursor: isExporting || isRecording ? 'wait' : hasImage ? 'pointer' : 'not-allowed',
                 }}
               >
-                {isRecording ? '● REC' : 'Export ▾'}
+                {isExporting ? `↓ ${Math.round(exportProgress * 100)}%` : isRecording ? '● REC' : 'Export ▾'}
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, background: '#041016', border: `1px solid ${C.border}`, overflow: 'hidden', zIndex: 200 }}>
-                  <div style={sHdr}>Image frame</div>
-                  {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
-                    <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItemStyle}>{f}</button>
-                  ))}
-                  {videoFormats.map((fmt) => (
-                    <div key={fmt.mime}>
-                      <div style={{ borderTop: `1px solid ${C.border}40`, margin: '4px 0' }} />
-                      <div style={sHdr}>Video — {fmt.label}</div>
-                      {[5, 10, 30].map((s) => (
-                        <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItemStyle}>Clip — {s}s</button>
-                      ))}
-                    </div>
-                  ))}
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
+                  <ExportDropdown
+                    onImageExport={exportImage}
+                    onClipExport={isVideoSource ? undefined : exportVideo}
+                    videoFormats={isVideoSource ? [] : videoFormats}
+                    isRecording={isRecording}
+                    onFullExport={isVideoSource ? onFullVideoExport : undefined}
+                    isVideoSource={isVideoSource}
+                    isExporting={isExporting}
+                    exportProgress={exportProgress}
+                  />
                 </div>
               )}
             </div>
@@ -244,7 +252,7 @@ export default function EffectLayout({
               {effectName}
             </div>
             <div style={{ fontSize: 13, color: 'rgba(172,199,253,0.25)', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
-              [ CLICK TO UPLOAD IMAGE ]
+              {onVideoLoad ? '[ CLICK TO UPLOAD IMAGE OR VIDEO ]' : '[ CLICK TO UPLOAD IMAGE ]'}
             </div>
           </div>
         )}

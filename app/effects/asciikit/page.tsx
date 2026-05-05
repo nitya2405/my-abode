@@ -7,6 +7,7 @@ import { saveCanvasToGallery } from '@/lib/gallery';
 import { detectVideoFormats, startCanvasRecording, exportVideoFull, VideoFormat } from '@/lib/export';
 import { C, effects } from '@/lib/effects-data';
 import { useIsMobile } from '@/lib/useIsMobile';
+import ExportDropdown from '@/components/ExportDropdown';
 
 const MAX_DIM = 1200;
 
@@ -210,7 +211,7 @@ export default function ASCIIKitPage() {
     if (!canvas) return;
     const mime = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' }[fmt];
     const a = document.createElement('a');
-    a.href = canvas.toDataURL(mime, 0.92);
+    a.href = canvas.toDataURL(mime, 1.0);
     a.download = `asciikit.${fmt}`;
     a.click();
     setShowExport(false);
@@ -304,28 +305,17 @@ export default function ASCIIKitPage() {
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#041016', border: `1px solid ${C.border}`, borderRadius: 0, overflow: 'hidden', zIndex: 200 }}>
-                  <div style={{ padding: '6px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Image frame</div>
-                  {(['PNG', 'JPEG', 'WebP'] as const).map((f) => (
-                    <button key={f} onClick={() => exportImage(f.toLowerCase() as 'png' | 'jpeg' | 'webp')} style={menuItem}>{f}</button>
-                  ))}
-                  {mediaType === 'video' ? (
-                    <>
-                      <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
-                      <div style={{ padding: '4px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Full Video</div>
-                      <button onClick={handleExportFull} style={menuItem}>Export Full Video</button>
-                    </>
-                  ) : (
-                    videoFormats.map((fmt) => (
-                      <div key={fmt.mime}>
-                        <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
-                        <div style={{ padding: '4px 12px 4px', fontSize: 9, color: C.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Video — {fmt.label}</div>
-                        {[5, 10, 30].map((s) => (
-                          <button key={s} onClick={() => exportVideo(fmt, s)} style={menuItem}>Clip — {s}s</button>
-                        ))}
-                      </div>
-                    ))
-                  )}
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
+                  <ExportDropdown
+                    onImageExport={exportImage}
+                    onClipExport={mediaType === 'video' ? undefined : exportVideo}
+                    videoFormats={mediaType === 'video' ? [] : videoFormats}
+                    isRecording={isRecording}
+                    onFullExport={mediaType === 'video' ? handleExportFull : undefined}
+                    isVideoSource={mediaType === 'video'}
+                    isExporting={isExporting}
+                    exportProgress={exportProgress}
+                  />
                 </div>
               )}
             </div>
