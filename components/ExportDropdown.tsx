@@ -7,7 +7,7 @@ interface ExportDropdownProps {
   onClipExport?: (fmt: VideoFormat, secs: number) => void;
   videoFormats?: VideoFormat[];
   isRecording?: boolean;
-  onFullExport?: () => void;
+  onFullExport?: (fmt: 'webm' | 'mp4') => void;
   isVideoSource?: boolean;
   isExporting?: boolean;
   exportProgress?: number;
@@ -75,13 +75,14 @@ export default function ExportDropdown({
                   }} />
                 </div>
                 <span style={{ fontSize: 10, color: C.green, fontFamily: 'monospace', letterSpacing: '0.06em' }}>
-                  {Math.round(exportProgress * 100)}% — encoding VP9…
+                  {Math.round(exportProgress * 100)}% — encoding…
                 </span>
               </div>
             ) : (
               <>
-                <div style={sHdr}>Video — VP9 WebM · 25 Mbps</div>
-                <button onClick={onFullExport} style={item}>Export Full Video</button>
+                <div style={sHdr}>Video — full quality</div>
+                <button onClick={() => onFullExport('mp4')} style={item}>MP4 — H.264</button>
+                <button onClick={() => onFullExport('webm')} style={item}>WebM — VP9</button>
               </>
             )
           ) : onClipExport && videoFormats.length > 0 && (

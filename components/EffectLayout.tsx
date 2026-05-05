@@ -18,7 +18,7 @@ interface EffectLayoutProps {
   children: React.ReactNode;
   // Video-source export props (used by Recolor)
   isVideoSource?: boolean;
-  onFullVideoExport?: () => void;
+  onFullVideoExport?: (fmt: 'webm' | 'mp4') => void;
   isExporting?: boolean;
   exportProgress?: number;
 }
@@ -221,7 +221,7 @@ export default function EffectLayout({
               </button>
 
               {showExport && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200 }}>
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 2, zIndex: 200 }}>
                   <ExportDropdown
                     onImageExport={exportImage}
                     onClipExport={isVideoSource ? undefined : exportVideo}

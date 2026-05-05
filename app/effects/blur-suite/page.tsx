@@ -130,7 +130,7 @@ export default function BlurSuitePage() {
     setShowExport(false);
   };
 
-  const handleExportFull = async () => {
+  const handleExportFull = async (fmt: 'webm' | 'mp4' = 'webm') => {
     if (!videoRef.current || !canvasRef.current || !tempCanvasRef.current || isExporting) return;
     cancelAnimationFrame(videoRafRef.current);
     setIsExporting(true);
@@ -147,6 +147,7 @@ export default function BlurSuitePage() {
       },
       'blur-suite',
       setExportProgress,
+      fmt,
     );
     setIsExporting(false);
     videoRef.current.loop = true;

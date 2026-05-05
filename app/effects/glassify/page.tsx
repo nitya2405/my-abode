@@ -142,7 +142,7 @@ export default function GlassifyPage() {
     }
   };
 
-  const handleExportFull = async () => {
+  const handleExportFull = async (fmt: 'webm' | 'mp4' = 'webm') => {
     if (!videoRef.current || !canvasRef.current || isExporting) return;
     cancelAnimationFrame(videoRafRef.current);
     setIsExporting(true);
@@ -165,6 +165,7 @@ export default function GlassifyPage() {
       },
       'glassify',
       setExportProgress,
+      fmt,
     );
     setIsExporting(false);
     setVideoPaused(false);

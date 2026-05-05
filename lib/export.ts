@@ -97,6 +97,7 @@ export async function exportVideoFull(
   renderFrame: (video: HTMLVideoElement) => void,
   filename: string,
   onProgress: (pct: number) => void,
+  format: 'webm' | 'mp4' = 'webm',
 ): Promise<void> {
   const w = video.videoWidth;
   const h = video.videoHeight;
@@ -111,7 +112,88 @@ export async function exportVideoFull(
     typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
 
   if (hasWebCodecs) {
-    const FPS = 60;
+    const FPS = 30;
+
+    const seekAndEncode = async (
+      encodeFrame: (timestampUs: number) => void,
+    ) => {
+      const vid = video;
+      await new Promise<void>((resolve) => {
+        const total = Math.ceil(duration * FPS);
+        let i = 0;
+        const next = () => {
+          if (i >= total) { resolve(); return; }
+          const time = i / FPS;
+          vid.currentTime = Math.min(time, duration - 0.001);
+          vid.addEventListener('seeked', () => {
+            encodeFrame(Math.round(time * 1_000_000));
+            onProgress(Math.min((i + 1) / total, 1));
+            i++;
+            next();
+          }, { once: true });
+        };
+        next();
+      });
+    };
+
+    if (format === 'mp4') {
+      const h264Config: VideoEncoderConfig = {
+        codec: 'avc1.640033', // H.264 High profile, level 5.1
+        width: w,
+        height: h,
+        bitrate: 25_000_000,
+        framerate: FPS,
+        avc: { format: 'avc' },
+      };
+      let useH264 = false;
+      try {
+        const { supported } = await VideoEncoder.isConfigSupported(h264Config);
+        useH264 = !!supported;
+      } catch { useH264 = false; }
+
+      if (useH264) {
+        const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+        const target = new ArrayBufferTarget();
+        const muxer = new Muxer({
+          target,
+          video: { codec: 'avc', width: w, height: h },
+          fastStart: 'in-memory',
+        });
+
+        let frameIndex = 0;
+        const encoder = new VideoEncoder({
+          output: (chunk, meta) => muxer.addVideoChunk(chunk, meta ?? undefined),
+          error: (e) => console.error('VideoEncoder:', e),
+        });
+        encoder.configure(h264Config);
+
+        await seekAndEncode((ts) => {
+          renderFrame(video);
+          const vf = new VideoFrame(canvas, { timestamp: ts });
+          encoder.encode(vf, { keyFrame: frameIndex % 30 === 0 });
+          vf.close();
+          frameIndex++;
+        });
+
+        video.pause();
+        await encoder.flush();
+        muxer.finalize();
+        video.loop = wasLooping;
+
+        const blob = new Blob([target.buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `${filename}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+        return;
+      }
+      // H.264 not supported — fall through to WebM VP9
+    }
+
     const vpConfig: VideoEncoderConfig = {
       codec: 'vp09.00.51.08', // VP9, profile 0, level 5.1, 8-bit
       width: w,
@@ -119,14 +201,11 @@ export async function exportVideoFull(
       bitrate: 25_000_000,
       framerate: FPS,
     };
-
     let useVP9 = false;
     try {
       const { supported } = await VideoEncoder.isConfigSupported(vpConfig);
       useVP9 = !!supported;
-    } catch {
-      useVP9 = false;
-    }
+    } catch { useVP9 = false; }
 
     if (useVP9) {
       const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
@@ -137,47 +216,19 @@ export async function exportVideoFull(
         firstTimestampBehavior: 'offset',
       });
 
+      let frameIndex = 0;
       const encoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
         error: (e) => console.error('VideoEncoder:', e),
       });
       encoder.configure(vpConfig);
 
-      let frameIndex = 0;
-
-      const encodeFrame = (timestampUs: number) => {
+      await seekAndEncode((ts) => {
         renderFrame(video);
-        const vf = new VideoFrame(canvas, { timestamp: timestampUs });
+        const vf = new VideoFrame(canvas, { timestamp: ts });
         encoder.encode(vf, { keyFrame: frameIndex % 60 === 0 });
         vf.close();
         frameIndex++;
-        onProgress(Math.min(video.currentTime / duration, 1));
-      };
-
-      const vid = video; // stable reference, avoids TS narrowing inside Promise
-
-      await new Promise<void>((resolve, reject) => {
-        const total = Math.ceil(duration * FPS);
-        let i = 0;
-
-        const next = () => {
-          if (i >= total) {
-            resolve();
-            return;
-          }
-          const time = i / FPS;
-          vid.currentTime = Math.min(time, duration - 0.001);
-          
-          // Wait for the seek to complete before capturing the frame
-          vid.addEventListener('seeked', () => {
-            const ts = Math.round(time * 1_000_000);
-            encodeFrame(ts);
-            i++;
-            next();
-          }, { once: true });
-        };
-        
-        next();
       });
 
       video.pause();
@@ -193,12 +244,7 @@ export async function exportVideoFull(
       a.download = `${filename}.webm`;
       document.body.appendChild(a);
       a.click();
-      
-      // Delay revocation to ensure the browser has started the download
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 200);
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
       return;
     }
   }
