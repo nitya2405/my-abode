@@ -30,17 +30,23 @@ export function renderLoopflow(
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(srcCanvas, 0, 0);
 
-  // Auto region: center 35% of image
-  let region: { x: number; y: number; w: number; h: number };
+  // Source region: what content gets looped (from dots, or auto center)
+  let src: { x: number; y: number; w: number; h: number };
   if (params.regionPoints && params.regionPoints.length === 4) {
     const xs = params.regionPoints.map((p) => p[0] * w);
     const ys = params.regionPoints.map((p) => p[1] * h);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
-    region = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    src = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   } else {
-    region = { x: w * 0.325, y: h * 0.325, w: w * 0.35, h: h * 0.35 };
+    src = { x: w * 0.325, y: h * 0.325, w: w * 0.35, h: h * 0.35 };
   }
+
+  // Output area: always centered on the canvas (60% of each dimension)
+  const outW = w * 0.6;
+  const outH = h * 0.6;
+  const outX = (w - outW) / 2;
+  const outY = (h - outH) / 2;
 
   // animPhase in [0,1) drives the continuous zoom
   const animPhase = params.speed > 0
@@ -49,13 +55,13 @@ export function renderLoopflow(
 
   const zf = Math.max(1.01, params.zoom);
 
-  // Draw from largest to smallest — each outer-to-inner frame
+  // Draw recursive zoom of source content into centered output area
   for (let i = params.iterations - 1; i >= 0; i--) {
     const scaleFactor = Math.pow(1 / zf, i + animPhase);
-    const ix = region.x + region.w * (1 - scaleFactor) / 2;
-    const iy = region.y + region.h * (1 - scaleFactor) / 2;
-    const iw = region.w * scaleFactor;
-    const ih = region.h * scaleFactor;
+    const ix = outX + outW * (1 - scaleFactor) / 2;
+    const iy = outY + outH * (1 - scaleFactor) / 2;
+    const iw = outW * scaleFactor;
+    const ih = outH * scaleFactor;
 
     if (iw < 1 || ih < 1) continue;
 
@@ -66,8 +72,7 @@ export function renderLoopflow(
       ctx.rotate(angle);
       ctx.translate(-(ix + iw / 2), -(iy + ih / 2));
     }
-    // Draw only the region portion of the source, scaled into the sub-area
-    ctx.drawImage(srcCanvas, region.x, region.y, region.w, region.h, ix, iy, iw, ih);
+    ctx.drawImage(srcCanvas, src.x, src.y, src.w, src.h, ix, iy, iw, ih);
     ctx.restore();
   }
 

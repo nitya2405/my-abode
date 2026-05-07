@@ -95,6 +95,7 @@ export default function LoopflowPage() {
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [drawMode, setDrawMode] = useState(false);
   const [regionPoints, setRegionPoints] = useState<[number, number][] | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const [params, setParams] = useState<LoopflowParams>({
     transform: 'droste',
     iterations: 6,
@@ -121,9 +122,9 @@ export default function LoopflowPage() {
       const ctx = c.getContext('2d')!;
       ctx.putImageData(frame, 0, 0);
 
-      // Pending point overlay (while clicking 4 points)
+      // Pending point overlay (while clicking 4 points) — hide once region is confirmed
       const ppts = pendingPointsRef.current;
-      if (ppts.length > 0) {
+      if (ppts.length > 0 && !params.regionPoints) {
         drawPointsOverlay(ctx, ppts, c.width, c.height, false);
       }
 
@@ -151,10 +152,11 @@ export default function LoopflowPage() {
       ];
       const next = [...pendingPointsRef.current, pt];
       pendingPointsRef.current = next;
+      setPendingCount(next.length);
       if (next.length === 4) {
         setRegionPoints(next);
         setDrawMode(false);
-        pendingPointsRef.current = [];
+        // Don't clear ref here — keep dots visible until effect cleanup runs
       }
     };
 
@@ -170,6 +172,8 @@ export default function LoopflowPage() {
     return () => {
       canvas.removeEventListener('click', onClick);
       canvas.removeEventListener('touchend', onTouch);
+      pendingPointsRef.current = [];
+      setPendingCount(0);
     };
   }, [drawMode]);
 
@@ -180,7 +184,7 @@ export default function LoopflowPage() {
       effectName="LOOPFLOW"
       description="Infinite Droste zoom — the image recursively contains itself, animating continuously."
       canvasRef={canvasRef}
-      onImageLoad={(d) => { setImageData(d); setRegionPoints(null); pendingPointsRef.current = []; }}
+      onImageLoad={(d) => { setImageData(d); setRegionPoints(null); pendingPointsRef.current = []; setPendingCount(0); }}
       animated
       hasImage={!!imageData}
     >
@@ -191,16 +195,16 @@ export default function LoopflowPage() {
         <span style={sectLabel}>Region</span>
         {drawMode && (
           <span style={{ fontSize: 10, color: '#acc7fd', fontFamily: '"Courier New", monospace' }}>
-            {pendingPointsRef.current.length}/4 pts
+            {pendingCount}/4 pts
           </span>
         )}
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-        <button onClick={() => { setRegionPoints(null); setDrawMode(false); pendingPointsRef.current = []; }} style={btn(!drawMode && !regionPoints)}>
+        <button onClick={() => { setRegionPoints(null); setDrawMode(false); pendingPointsRef.current = []; setPendingCount(0); }} style={btn(!drawMode && !regionPoints)}>
           Auto
         </button>
-        <button onClick={() => { setDrawMode(true); setRegionPoints(null); pendingPointsRef.current = []; }} style={btn(drawMode || !!regionPoints)}>
-          {drawMode ? `Click pt ${(pendingPointsRef.current.length ?? 0) + 1}…` : 'Draw'}
+        <button onClick={() => { setDrawMode(true); setRegionPoints(null); pendingPointsRef.current = []; setPendingCount(0); }} style={btn(drawMode || !!regionPoints)}>
+          {drawMode ? `Click pt ${pendingCount + 1}…` : 'Draw'}
         </button>
       </div>
 
@@ -211,7 +215,7 @@ export default function LoopflowPage() {
             <span style={sectLabel}>Region defined</span>
           </div>
           <button
-            onClick={() => { setRegionPoints(null); setDrawMode(false); pendingPointsRef.current = []; }}
+            onClick={() => { setRegionPoints(null); setDrawMode(false); pendingPointsRef.current = []; setPendingCount(0); }}
             style={{
               width: '100%', padding: '8px', fontSize: 11, borderRadius: 0,
               fontFamily: '"Courier New", monospace', fontWeight: 600, letterSpacing: '0.08em',
