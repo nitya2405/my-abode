@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { saveCanvasToGallery } from '@/lib/gallery';
-import { detectVideoFormats, startCanvasRecording, VideoFormat } from '@/lib/export';
+import { detectVideoFormats, startCanvasRecording, exportGif, VideoFormat } from '@/lib/export';
 import { C } from '@/lib/effects-data';
 import ExportDropdown from '@/components/ExportDropdown';
 import VideoControls from '@/components/VideoControls';
@@ -126,37 +126,106 @@ export default function EffectLayout({
   isExporting = false,
   exportProgress = 0,
   videoRef,
+  animated = false,
   children,
 }: EffectLayoutProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportBtnRef = useRef<HTMLDivElement>(null);
+  const originalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+
   const [isRecording, setIsRecording] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const [videoFormats, setVideoFormats] = useState<VideoFormat[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [showBeforeAfter, setShowBeforeAfter] = useState(false);
+  const [splitPos, setSplitPos] = useState(0.5);
+  const [originalImage, setOriginalImage] = useState<ImageData | null>(null);
+  const isDraggingSplit = useRef(false);
+
   useEffect(() => { setVideoFormats(detectVideoFormats()); }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
+  // Draw original image to overlay canvas when before/after is active
+  useEffect(() => {
+    const orig = originalCanvasRef.current;
+    if (!orig || !originalImage || !showBeforeAfter) return;
+    orig.width = originalImage.width;
+    orig.height = originalImage.height;
+    orig.getContext('2d')!.putImageData(originalImage, 0, 0);
+  }, [originalImage, showBeforeAfter]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      switch (e.key.toLowerCase()) {
+        case 'u': fileInputRef.current?.click(); break;
+        case 's': if (hasImage) handleSave(); break;
+        case 'e':
+          if (hasImage && !isRecording && !isExporting) {
+            if (exportBtnRef.current) {
+              const rect = exportBtnRef.current.getBoundingClientRect();
+              setDropdownPos({ top: rect.bottom + 2, right: window.innerWidth - rect.right });
+            }
+            setShowExport(v => !v);
+          }
+          break;
+        case 'b': if (hasImage && !isVideoSource) setShowBeforeAfter(v => !v); break;
+        case 'escape': setShowExport(false); setShowBeforeAfter(false); break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasImage, isRecording, isExporting, isVideoSource]);
+
+  // Split-line drag
+  const onSplitMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplit.current = true;
+    const onMove = (mv: MouseEvent) => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const rect = stage.getBoundingClientRect();
+      setSplitPos(Math.max(0.05, Math.min(0.95, (mv.clientX - rect.left) / rect.width)));
+    };
+    const onUp = () => {
+      isDraggingSplit.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const processFile = useCallback((file: File) => {
     if (file.type.startsWith('video/') && onVideoLoad) {
       onVideoLoad(file);
+      setShowBeforeAfter(false);
       return;
     }
-
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
       c.width = img.width; c.height = img.height;
       const ctx = c.getContext('2d')!;
       ctx.drawImage(img, 0, 0);
-      onImageLoad(ctx.getImageData(0, 0, img.width, img.height));
+      const data = ctx.getImageData(0, 0, img.width, img.height);
+      setOriginalImage(data);
+      onImageLoad(data);
       URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(file);
+  }, [onImageLoad, onVideoLoad]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    processFile(file);
   };
 
   const exportImage = (fmt: 'png' | 'jpeg' | 'webp') => {
@@ -164,10 +233,17 @@ export default function EffectLayout({
     if (!canvas || !hasImage) return;
     const mime = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' }[fmt];
     const a = document.createElement('a');
-    a.href = canvas.toDataURL(mime, 1.0); // maximum quality
+    a.href = canvas.toDataURL(mime, 1.0);
     a.download = `${effectName.toLowerCase()}.${fmt}`;
     a.click();
     setShowExport(false);
+  };
+
+  const exportGifClip = async (secs: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasImage || isRecording) return;
+    setShowExport(false);
+    await exportGif(canvas, effectName.toLowerCase(), secs * 1000);
   };
 
   const exportVideo = (fmt: VideoFormat, secs: number) => {
@@ -195,7 +271,7 @@ export default function EffectLayout({
 
           <input ref={fileInputRef} type="file" accept={accept} onChange={handleFileChange} style={{ display: 'none' }} />
 
-          <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => fileInputRef.current?.click()} style={btnStyle}>
               Upload
             </button>
@@ -232,13 +308,49 @@ export default function EffectLayout({
               </button>
             </div>
           </div>
+
+          {/* Before/After toggle — only for image sources */}
+          {!isVideoSource && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => hasImage && setShowBeforeAfter(v => !v)}
+                title="Toggle Before/After split (B)"
+                style={{
+                  ...btnStyle, width: '100%',
+                  background: showBeforeAfter ? 'rgba(172,199,253,0.1)' : C.surfaceHigh,
+                  color: showBeforeAfter ? C.primary : hasImage ? C.textDim : C.textMuted,
+                  border: `1px solid ${showBeforeAfter ? C.border : 'rgba(172,199,253,0.08)'}`,
+                  cursor: hasImage ? 'pointer' : 'not-allowed',
+                  fontSize: 10,
+                }}
+              >
+                {showBeforeAfter ? '◧ Before / After — drag to split' : '◧ Before / After'}
+              </button>
+            </div>
+          )}
         </PanelTop>
+
+        {/* Keyboard hint */}
+        <div style={{ padding: '0 18px 10px', fontSize: 9, color: C.textMuted, fontFamily: 'monospace', letterSpacing: '0.08em', lineHeight: 1.8 }}>
+          U — upload &nbsp;·&nbsp; S — save &nbsp;·&nbsp; E — export{!isVideoSource ? ' · B — before/after' : ''}
+        </div>
 
         <div style={{ borderTop: `1px solid ${C.border}` }} />
         <PanelBody>{children}</PanelBody>
       </Panel>
 
-      <Stage>
+      <Stage
+        ref={stageRef}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={(e) => { if (!stageRef.current?.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          const file = e.dataTransfer.files[0];
+          if (file) processFile(file);
+        }}
+        style={isDragOver ? { outline: `2px dashed ${C.primary}`, outlineOffset: -2 } as React.CSSProperties : undefined}
+      >
         {!hasImage && (
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -248,11 +360,54 @@ export default function EffectLayout({
               {effectName}
             </div>
             <div style={{ fontSize: 13, color: 'rgba(172,199,253,0.25)', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
-              {onVideoLoad ? '[ CLICK TO UPLOAD IMAGE OR VIDEO ]' : '[ CLICK TO UPLOAD IMAGE ]'}
+              {onVideoLoad ? '[ CLICK OR DROP IMAGE / VIDEO ]' : '[ CLICK OR DROP IMAGE ]'}
             </div>
           </div>
         )}
+
         <Canvas ref={canvasRef} $visible={hasImage} />
+
+        {/* Before/After overlay */}
+        {showBeforeAfter && hasImage && originalImage && (
+          <>
+            {/* Original canvas clipped to left of split */}
+            <canvas
+              ref={originalCanvasRef}
+              style={{
+                position: 'absolute', inset: 0, margin: 'auto',
+                maxWidth: '96%', maxHeight: '96%', objectFit: 'contain',
+                clipPath: `inset(0 ${(1 - splitPos) * 100}% 0 0)`,
+                pointerEvents: 'none',
+              }}
+            />
+            {/* Labels */}
+            <div style={{ position: 'absolute', top: 12, left: `${splitPos * 48}%`, transform: 'translateX(-50%)', fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', pointerEvents: 'none' }}>BEFORE</div>
+            <div style={{ position: 'absolute', top: 12, right: `${(1 - splitPos) * 48}%`, transform: 'translateX(50%)', fontSize: 9, fontFamily: 'monospace', color: 'rgba(172,199,253,0.5)', letterSpacing: '0.1em', pointerEvents: 'none' }}>AFTER</div>
+            {/* Drag handle */}
+            <div
+              onMouseDown={onSplitMouseDown}
+              style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: `${splitPos * 100}%`, width: 2,
+                background: 'rgba(255,255,255,0.7)',
+                cursor: 'col-resize',
+                transform: 'translateX(-50%)',
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%',
+                transform: 'translate(-50%,-50%)',
+                width: 28, height: 28, borderRadius: '50%',
+                background: '#fff', border: '1px solid rgba(0,0,0,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, color: '#333', userSelect: 'none',
+              }}>
+                ⇔
+              </div>
+            </div>
+          </>
+        )}
+
         {isVideoSource && videoRef && <VideoControls videoRef={videoRef} />}
       </Stage>
 
@@ -270,6 +425,7 @@ export default function EffectLayout({
             isVideoSource={isVideoSource}
             isExporting={isExporting}
             exportProgress={exportProgress}
+            onGifExport={animated && !isVideoSource ? exportGifClip : undefined}
           />
         </div>
       )}

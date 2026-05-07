@@ -7,7 +7,16 @@ import { C, effects } from '@/lib/effects-data';
 
 export default function HomePage() {
   const [bootText, setBootText] = useState('');
+  const [query, setQuery] = useState('');
   const fullBootSequence = '> INITIALIZING ABODE_STUDIO... OK';
+
+  const filtered = query.trim()
+    ? effects.filter(e =>
+        e.label.toLowerCase().includes(query.toLowerCase()) ||
+        e.tags.some(t => t.toLowerCase().includes(query.toLowerCase())) ||
+        e.description.toLowerCase().includes(query.toLowerCase())
+      )
+    : effects;
 
   useEffect(() => {
     let i = 0;
@@ -84,23 +93,40 @@ export default function HomePage() {
 
         {/* ── MODULES ── */}
         <section id="modules" className="modules-section-mobile" style={{ padding: '40px 40px 64px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 16, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 8, height: 8, background: C.primary }} />
               <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '0.12em' }}>
                 AVAILABLE_MODULES
               </span>
             </div>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.textDim, letterSpacing: '0.08em' }}>
-              DISPLAYING: {effects.length} CORE MODULES
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="SEARCH_MODULES..."
+                style={{
+                  background: 'transparent', border: `1px solid ${C.border}`,
+                  color: C.primary, fontFamily: 'monospace', fontSize: 11,
+                  padding: '6px 12px', outline: 'none', letterSpacing: '0.08em',
+                  width: 200,
+                }}
+              />
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.textDim, letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+                {filtered.length}/{effects.length} MODULES
+              </span>
+            </div>
           </div>
 
           {/* Module grid */}
           <div className="modules-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-            {effects.map((effect) => (
+            {filtered.length > 0 ? filtered.map((effect) => (
               <ModuleCard key={effect.slug} effect={effect} />
-            ))}
+            )) : (
+              <div style={{ gridColumn: '1/-1', padding: '40px 0', fontFamily: 'monospace', fontSize: 12, color: C.textMuted, letterSpacing: '0.1em' }}>
+                NO MODULES MATCH &quot;{query}&quot;
+              </div>
+            )}
           </div>
         </section>
 

@@ -81,6 +81,41 @@ export function startCanvasRecording(
 }
 
 /**
+ * Export animated canvas as GIF — captures N frames over `durationMs` milliseconds.
+ * Works with any animated effect that continuously renders to canvas via rAF.
+ */
+export async function exportGif(
+  canvas: HTMLCanvasElement,
+  filename: string,
+  durationMs = 3000,
+  fps = 15,
+  onProgress?: (pct: number) => void,
+): Promise<void> {
+  const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const totalFrames = Math.round((durationMs / 1000) * fps);
+  const delay = Math.round(1000 / fps);
+  const gif = GIFEncoder();
+  const ctx = canvas.getContext('2d')!;
+
+  for (let i = 0; i < totalFrames; i++) {
+    await new Promise<void>(r => requestAnimationFrame(() => r()));
+    const { data } = ctx.getImageData(0, 0, w, h);
+    const palette = quantize(data, 256);
+    const index = applyPalette(data, palette);
+    gif.writeFrame(index, w, h, { palette, delay });
+    onProgress?.(i / totalFrames);
+  }
+
+  gif.finish();
+  const blob = new Blob([gif.bytesView()], { type: 'image/gif' });
+  download(blob, `${filename}.gif`);
+  onProgress?.(1);
+}
+
+/**
  * Full offline video export — renders every source frame through the effect and
  * encodes with WebCodecs (VP9 WebM, highest quality). Falls back to full-duration
  * MediaRecorder if WebCodecs is unavailable (Firefox <130, older Safari).

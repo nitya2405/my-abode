@@ -11,6 +11,7 @@ interface ExportDropdownProps {
   isVideoSource?: boolean;
   isExporting?: boolean;
   exportProgress?: number;
+  onGifExport?: (secs: number) => void;
 }
 
 const sHdr: React.CSSProperties = {
@@ -35,6 +36,7 @@ export default function ExportDropdown({
   isVideoSource = false,
   isExporting = false,
   exportProgress = 0,
+  onGifExport,
 }: ExportDropdownProps) {
   const hasVideoSection =
     (isVideoSource && !!onFullExport) ||
@@ -104,6 +106,23 @@ export default function ExportDropdown({
               ))}
             </>
           )}
+        </>
+      )}
+
+      {/* ── GIF ── */}
+      {onGifExport && !isVideoSource && (
+        <>
+          <div style={divider} />
+          <div style={sHdr}>Animated GIF</div>
+          {[3, 5, 10].map((s) => (
+            <button key={s} onClick={() => onGifExport(s)} disabled={isRecording} style={{
+              ...item,
+              color: isRecording ? C.textMuted : C.primary,
+              cursor: isRecording ? 'not-allowed' : 'pointer',
+            }}>
+              {`GIF — ${s}s`}
+            </button>
+          ))}
         </>
       )}
 

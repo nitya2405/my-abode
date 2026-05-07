@@ -97,9 +97,39 @@ export default function ASCIIKitPage() {
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [videoFormats, setVideoFormats] = useState<VideoFormat[]>([]);
+  const [showBeforeAfter, setShowBeforeAfter] = useState(false);
+  const [splitPos, setSplitPos] = useState(0.5);
+  const originalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const isDraggingSplit = useRef(false);
   const paramsRef = useRef(params);
   useEffect(() => { paramsRef.current = params; }, [params]);
   useEffect(() => { setVideoFormats(detectVideoFormats()); }, []);
+
+  // Sync original image to overlay canvas
+  useEffect(() => {
+    const orig = originalCanvasRef.current;
+    if (!orig || !imageData || !showBeforeAfter) return;
+    orig.width = imageData.width;
+    orig.height = imageData.height;
+    orig.getContext('2d')!.putImageData(imageData, 0, 0);
+  }, [imageData, showBeforeAfter]);
+
+  const onSplitMouseDown = (e: React.MouseEvent, stageEl: HTMLElement | null) => {
+    e.preventDefault();
+    isDraggingSplit.current = true;
+    const onMove = (mv: MouseEvent) => {
+      if (!stageEl) return;
+      const rect = stageEl.getBoundingClientRect();
+      setSplitPos(Math.max(0.05, Math.min(0.95, (mv.clientX - rect.left) / rect.width)));
+    };
+    const onUp = () => {
+      isDraggingSplit.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   const hasMedia = mediaType !== null;
 
@@ -321,6 +351,25 @@ export default function ASCIIKitPage() {
               {videoError}
             </div>
           )}
+
+          {/* Before/After — image only */}
+          {mediaType === 'image' && (
+            <div style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => hasMedia && setShowBeforeAfter(v => !v)}
+                style={{
+                  ...btnStyle, width: '100%',
+                  background: showBeforeAfter ? 'rgba(172,199,253,0.1)' : C.surfaceHigh,
+                  color: showBeforeAfter ? C.primary : hasMedia ? C.textDim : C.textMuted,
+                  border: `1px solid ${showBeforeAfter ? C.border : 'rgba(172,199,253,0.08)'}`,
+                  cursor: hasMedia ? 'pointer' : 'not-allowed',
+                  fontSize: 10,
+                }}
+              >
+                {showBeforeAfter ? '◧ Before / After — drag to split' : '◧ Before / After'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ borderTop: `1px solid ${C.border}` }} />
@@ -411,6 +460,10 @@ export default function ASCIIKitPage() {
         canvasRef={canvasRef}
         isMobile={isMobile}
         videoRef={videoRef}
+        showBeforeAfter={showBeforeAfter && mediaType === 'image'}
+        splitPos={splitPos}
+        originalCanvasRef={originalCanvasRef}
+        onSplitMouseDown={onSplitMouseDown}
       />
 
       {showExport && (
@@ -431,7 +484,7 @@ export default function ASCIIKitPage() {
   );
 }
 
-function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef, isMobile, videoRef }: {
+function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canvasRef, isMobile, videoRef, showBeforeAfter, splitPos, originalCanvasRef, onSplitMouseDown }: {
   hasMedia: boolean;
   mediaType: 'image' | 'video' | null;
   videoPaused: boolean;
@@ -440,12 +493,18 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
   canvasRef: React.RefObject<HTMLCanvasElement>;
   isMobile: boolean;
   videoRef: React.RefObject<HTMLVideoElement>;
+  showBeforeAfter: boolean;
+  splitPos: number;
+  originalCanvasRef: React.RefObject<HTMLCanvasElement>;
+  onSplitMouseDown: (e: React.MouseEvent, el: HTMLElement | null) => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
   const isVideo = mediaType === 'video' && hasMedia;
 
   return (
     <div
+      ref={stageRef}
       style={{
         flex: isMobile ? 'none' : 1,
         height: isMobile ? '42vh' : undefined,
@@ -470,6 +529,44 @@ function VideoStage({ hasMedia, mediaType, videoPaused, onUpload, onToggle, canv
       )}
 
       <canvas ref={canvasRef} style={{ maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', display: hasMedia ? 'block' : 'none', cursor: 'default' }} />
+
+      {/* Before/After overlay */}
+      {showBeforeAfter && hasMedia && (
+        <>
+          <canvas
+            ref={originalCanvasRef}
+            style={{
+              position: 'absolute', inset: 0, margin: 'auto',
+              maxWidth: '96%', maxHeight: '96%', objectFit: 'contain',
+              clipPath: `inset(0 ${(1 - splitPos) * 100}% 0 0)`,
+              pointerEvents: 'none',
+            }}
+          />
+          <div style={{ position: 'absolute', top: 12, left: `${splitPos * 48}%`, transform: 'translateX(-50%)', fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', pointerEvents: 'none' }}>BEFORE</div>
+          <div style={{ position: 'absolute', top: 12, right: `${(1 - splitPos) * 48}%`, transform: 'translateX(50%)', fontSize: 9, fontFamily: 'monospace', color: 'rgba(172,199,253,0.5)', letterSpacing: '0.1em', pointerEvents: 'none' }}>AFTER</div>
+          <div
+            onMouseDown={(e) => onSplitMouseDown(e, stageRef.current)}
+            style={{
+              position: 'absolute', top: 0, bottom: 0,
+              left: `${splitPos * 100}%`, width: 2,
+              background: 'rgba(255,255,255,0.7)',
+              cursor: 'col-resize',
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%,-50%)',
+              width: 28, height: 28, borderRadius: '50%',
+              background: '#fff', border: '1px solid rgba(0,0,0,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, color: '#333', userSelect: 'none',
+            }}>
+              ⇔
+            </div>
+          </div>
+        </>
+      )}
 
       {isVideo && <VideoControls videoRef={videoRef} onToggle={onToggle} />}
     </div>
